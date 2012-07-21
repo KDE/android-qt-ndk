@@ -21,7 +21,9 @@
 # GOOGLE_PREBUILT=<some folder>
 # git clone https://android.googlesource.com/platform/prebuilt $GOOGLE_PREBUILT
 # PATH=$GOOGLE_PREBUILT/linux-x86/toolchain/i686-linux-glibc2.7-4.4.3/bin:$PATH
-# build-mingw64-toolchain.sh --target-arch=i686 --package-dir=i686-w64-mingw32-toolchain --binprefix=i686-linux
+# build-mingw64-toolchain.sh --target-arch=i686                       \
+#                            --package-dir=i686-w64-mingw32-toolchain \
+#                            --binprefix=i686-linux
 #
 
 PROGNAME=$(basename $0)
@@ -135,7 +137,10 @@ MPFR_VERSION=3.1.0
 MPC_VERSION=0.8.2
 BINUTILS_VERSION=2.22
 GCC_VERSION=4.6.3
-MINGW_W64_VERSION=svn@5053
+# Need at least revision 5166
+#  "stdio.h (asprintf, vasprintf): Disable definitions stubs"
+#  as otherwise gold can't be built.
+MINGW_W64_VERSION=svn@5166
 
 JOBS=$(( $NUM_CORES * 2 ))
 
