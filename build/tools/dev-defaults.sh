@@ -33,7 +33,7 @@ DEFAULT_GCC_VERSION_LIST="4.6 4.4.3"
 #
 DEFAULT_GCC_VERSION=$(echo "$DEFAULT_GCC_VERSION_LIST" | tr ' ' '\n' | head -n 1)
 
-DEFAULT_BINUTILS_VERSION=2.21
+DEFAULT_BINUTILS_VERSION=2.22.52
 DEFAULT_GDB_VERSION=7.3.x
 DEFAULT_MPFR_VERSION=2.4.1
 DEFAULT_GMP_VERSION=5.0.5
@@ -112,12 +112,16 @@ get_default_abis_for_arch ()
 
 # Return toolchain name for given architecture and GCC version
 # $1: Architecture name (e.g. 'arm')
-# $2: GCC version (e.g. '4.6ʼ)
+# $2: optional, GCC version (e.g. '4.6')
 # Out: default arch-specific toolchain name (e.g. 'arm-linux-androideabi-$GCC_VERSION')
 # Return empty for unknown arch
 get_toolchain_name_for_arch ()
 {
-    eval echo \"\${DEFAULT_ARCH_TOOLCHAIN_NAME_$1}-$2\"
+    if [ ! -z "$2" ] ; then
+        eval echo \"\${DEFAULT_ARCH_TOOLCHAIN_NAME_$1}-$2\"
+    else
+        eval echo \"\${DEFAULT_ARCH_TOOLCHAIN_NAME_$1}\"
+    fi
 }
 
 # Return the default toolchain name for a given architecture
@@ -173,7 +177,7 @@ get_toolchain_name_list_for_arch ()
 get_default_binutils_version_for_gcc ()
 {
     case $1 in
-        arm-*-4.4.3|x86-4.4.3|x86-*-4.4.3) echo "2.19";;
+        arm-*-4.4.3|x86-4.4.3|x86-*-4.4.3) echo "2.22.52";;
         *) echo "$DEFAULT_BINUTILS_VERSION";;
     esac
 }

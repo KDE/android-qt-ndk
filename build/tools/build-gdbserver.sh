@@ -255,7 +255,7 @@ fi
 if [ "$PACKAGE_DIR" ]; then
     ARCHIVE=$ARCH-gdbserver.tar.bz2
     dump "Packaging: $ARCHIVE"
-    pack_archive "$PACKAGE_DIR/$ARCHIVE" "$ANDROID_NDK_ROOT" "prebuilt/android-$ARCH/gdbserver/$DSTFILE"
+    pack_archive "$PACKAGE_DIR/$ARCHIVE" "$ANDROID_NDK_ROOT" "$(gdbserver_ndk_install_dir any android-$ARCH $GDB_VERSION)/$DSTFILE"
 fi
 
 log "Cleaning up."

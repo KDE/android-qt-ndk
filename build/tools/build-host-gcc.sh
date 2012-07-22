@@ -493,8 +493,8 @@ get_default_binutils_version_for_gcc ()
 {
     local RET
     case $1 in
-        arm-*-4.4.3|x86-*-4.4.3|x86-4.4.3) RET=2.19;;
-        *) RET=2.21;;
+        arm-*-4.4.3|x86-*-4.4.3|x86-4.4.3) RET=2.22.52;;
+        *) RET=2.22.52;;
     esac
     echo "$RET"
 }
@@ -776,6 +776,8 @@ select_toolchain_for_host ()
                 *) panic "Sorry, this script only supports building windows binaries on Linux."
                 ;;
             esac
+            HOST_CFLAGS=$HOST_CFLAGS" -D__USE_MINGW_ANSI_STDIO=1"
+            HOST_CXXFLAGS=$HOST_CXXFLAGS" -D__USE_MINGW_ANSI_STDIO=1"
             ;;
 
         windows-x86_64)
@@ -821,6 +823,8 @@ select_toolchain_for_host ()
                 *) panic "Sorry, this script only supports building windows binaries on Linux."
                 ;;
             esac
+            HOST_CFLAGS=$HOST_CFLAGS" -D__USE_MINGW_ANSI_STDIO=1"
+            HOST_CXXFLAGS=$HOST_CXXFLAGS" -D__USE_MINGW_ANSI_STDIO=1"
             ;;
     esac
 
@@ -1261,13 +1265,8 @@ build_host_binutils ()
 
     LD_NAME=$DEFAULT_LD
 
-    # Enable Gold, for specific builds. The version before binutils 2.21
-    # is buggy so don't use it
-    case $HOST_OS in
-        windows) BUILD_GOLD=;; # Gold doesn't compile on Windows!
-        darwin) BUILD_GOLD=;;  # Building Gold fails with an internal compiler error on Darwin!
-        *) BUILD_GOLD=true;;
-    esac
+    # Enable Gold globally.
+    BUILD_GOLD=true
 
     # Special case, gold in binutil-2.21 doesn't build when targetting mips
     if [ "$BINUTILS_VERSION" = "2.21" -a "$TARGET" = "mipsel-linux-android" ]; then

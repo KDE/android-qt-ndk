@@ -46,6 +46,7 @@ check_toolchain_src_dir "$SRC_DIR"
 # Now we can do the build
 BUILDTOOLS=$ANDROID_NDK_ROOT/build/tools
 
+setup_default_log_file /tmp/ndk-$USER/buildtargets/build.log
 dump "Building platforms and samples..."
 PACKAGE_FLAGS=
 if [ "$PACKAGE_DIR" ]; then
