@@ -1,0 +1,22 @@
+diff -urN a/binutils-2.22.52/binutils/bucomm.h b/binutils-2.22.52/binutils/bucomm.h
+--- a/binutils-2.22.52/binutils/bucomm.h	2012-07-13 12:55:42.732396052 +0100
++++ b/binutils-2.22.52/binutils/bucomm.h	2012-07-13 12:56:02.480523921 +0100
+@@ -23,6 +23,8 @@
+ #ifndef _BUCOMM_H
+ #define _BUCOMM_H
+ 
++#include <sys/stat.h>
++
+ /* Return the filename in a static buffer.  */
+ const char *bfd_get_archive_filename (const bfd *);
+ 
+--- a/binutils-2.22.52/gold/nacl.cc	2012-07-13 12:38:34.526272893 +0100
++++ b/binutils-2.22.52/gold/nacl.cc	2012-07-13 12:38:45.868457741 +0100
+@@ -25,6 +25,7 @@
+
+ #include "nacl.h"
+ #include "elfcpp.h"
++#include "libiberty.h"
+
+ namespace gold
+ {

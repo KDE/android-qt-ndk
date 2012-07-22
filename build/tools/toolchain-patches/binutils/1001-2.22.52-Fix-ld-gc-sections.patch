@@ -1,0 +1,13 @@
+diff -urN a/binutils-2.22.52/bfd/elflink.c b/binutils-2.22.52/bfd/elflink.c
+--- a/binutils-2.22.52/bfd/elflink.c	2012-07-09 09:17:34.000000000 +0100
++++ b/binutils-2.22.52/bfd/elflink.c	2012-07-13 12:48:15.204157834 +0100
+@@ -11862,6 +11862,9 @@
+ static bfd_boolean
+ elf_gc_sweep_symbol (struct elf_link_hash_entry *h, void *data)
+ {
++  if (h->root.type == bfd_link_hash_warning)
++    h = (struct elf_link_hash_entry *) h->root.u.i.link;
++
+   if (!h->mark
+       && (((h->root.type == bfd_link_hash_defined
+ 	    || h->root.type == bfd_link_hash_defweak)

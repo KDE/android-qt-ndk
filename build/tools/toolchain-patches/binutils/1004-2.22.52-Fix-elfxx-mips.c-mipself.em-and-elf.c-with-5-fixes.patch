@@ -1,0 +1,71 @@
+diff -urN a/binutils-2.22.52/bfd/elf.c b/binutils-2.22.52/bfd/elf.c
+--- a/binutils-2.22.52/bfd/elf.c	2012-07-13 12:58:45.719590970 +0100
++++ b/binutils-2.22.52/bfd/elf.c	2012-07-13 12:59:59.536186797 +0100
+@@ -6372,6 +6372,8 @@
+ 
+   BFD_ASSERT (elf_section_data (osec) != NULL);
+ 
++  BFD_ASSERT (elf_section_data (osec) != NULL);
++
+   /* For objcopy and relocatable link, don't copy the output ELF
+      section type from input if the output BFD section flags have been
+      set to something different.  For a final link allow some flags
+diff -urN a/binutils-2.22.52/bfd/elfxx-mips.c b/binutils-2.22.52/bfd/elfxx-mips.c
+--- a/binutils-2.22.52/bfd/elfxx-mips.c	2012-07-13 12:58:45.723590998 +0100
++++ b/binutils-2.22.52/bfd/elfxx-mips.c	2012-07-13 13:00:14.083338468 +0100
+@@ -4009,6 +4009,10 @@
+   struct mips_elf_link_hash_table *htab;
+   struct mips_got_info *g;
+ 
++  /* Follow warning symbol link.  */
++  if (h->root.root.type == bfd_link_hash_warning)
++    h = (struct mips_elf_link_hash_entry *) h->root.root.u.i.link;
++
+   info = (struct bfd_link_info *) data;
+   htab = mips_elf_hash_table (info);
+   g = htab->got_info;
+@@ -8977,6 +8981,10 @@
+ {
+   struct mips_elf_link_hash_table *htab;
+ 
++  /* Follow warning symbol link.  */
++  if (h->root.root.type == bfd_link_hash_warning)
++    h = (struct mips_elf_link_hash_entry *) h->root.root.u.i.link;
++
+   htab = (struct mips_elf_link_hash_table *) data;
+   if (h->needs_lazy_stub)
+     {
+diff -urN a/binutils-2.22.52/ld/emulparams/elf32bmip.sh.rej b/binutils-2.22.52/ld/emulparams/elf32bmip.sh.rej
+--- a/binutils-2.22.52/ld/emulparams/elf32bmip.sh.rej	2012-07-13 12:58:45.762591252 +0100
++++ b/binutils-2.22.52/ld/emulparams/elf32bmip.sh.rej	1970-01-01 01:00:00.000000000 +0100
+@@ -1,15 +0,0 @@
+---- ld/emulparams/elf32bmip.sh
+-+++ ld/emulparams/elf32bmip.sh
+-@@ -64,12 +64,6 @@
+- OTHER_SECTIONS='
+-   .gptab.sdata : { *(.gptab.data) *(.gptab.sdata) }
+-   .gptab.sbss : { *(.gptab.bss) *(.gptab.sbss) }
+--  .mdebug.abi32 : { KEEP(*(.mdebug.abi32)) }
+--  .mdebug.abiN32 : { KEEP(*(.mdebug.abiN32)) }
+--  .mdebug.abi64 : { KEEP(*(.mdebug.abi64)) }
+--  .mdebug.abiO64 : { KEEP(*(.mdebug.abiO64)) }
+--  .mdebug.eabi32 : { KEEP(*(.mdebug.eabi32)) }
+--  .mdebug.eabi64 : { KEEP(*(.mdebug.eabi64)) }
+-   .gcc_compiled_long32 : { KEEP(*(.gcc_compiled_long32)) }
+-   .gcc_compiled_long64 : { KEEP(*(.gcc_compiled_long64)) }
+- '
+diff -urN a/binutils-2.22.52/ld/emultempl/mipself.em b/binutils-2.22.52/ld/emultempl/mipself.em
+--- a/binutils-2.22.52/ld/emultempl/mipself.em	2012-07-13 12:58:45.899592147 +0100
++++ b/binutils-2.22.52/ld/emultempl/mipself.em	2012-07-13 13:01:54.661261213 +0100
+@@ -143,6 +143,11 @@
+   if (bfd_is_abs_section (output_section))
+     return NULL;
+ 
++  /* PR 12845: If the input section has been garbage collected it will
++     not have its output section set to *ABS*.  */
++  if (bfd_is_abs_section (output_section))
++    return NULL;
++
+   /* Create the stub file, if we haven't already.  */
+   if (stub_file == NULL)
+     {
