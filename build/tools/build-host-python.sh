@@ -81,7 +81,7 @@ BH_HOST_SYSTEMS=$(bh_sort_systems_build_first "$BH_HOST_SYSTEMS")
 # Make sure that the the user asked for the build OS's Python to be built.
 #  and that the above sort command worked correctly.
 if [ ! "$(bh_list_contains $BH_BUILD_TAG $BH_HOST_SYSTEMS)" = "first" ] ; then
-    panic "Cross building Python requires building for the build OS!"
+    panic "Cross building Python requires building for the build OS ($BH_BUILD_TAG)"
 fi
 
 download_package ()
@@ -179,6 +179,8 @@ done
 #  as I package them from the build folder, substituting
 #  the end part of python_build_install_dir matching python_ndk_install_dir
 #  with nothing.
+# Needs to match with
+#  python_build_install_dir () in build-host-gdb.sh
 python_build_install_dir ()
 {
     echo "$BH_BUILD_DIR/install/prebuilt/$1"
@@ -351,7 +353,8 @@ package_host_python ()
 {
     local BLDDIR="$(python_build_install_dir $1 $2)"
     local SRCDIR="$(python_ndk_install_dir $1 $2)"
-    BLDDIR=${BLDDIR%%$SRCDIR}
+    # This is similar to BLDDIR=${BLDDIR%%$SRCDIR}
+    BLDDIR=$(echo "$BLDDIR" | sed "s/$(echo "$SRCDIR" | sed -e 's/\\/\\\\/g' -e 's/\//\\\//g' -e 's/&/\\\&/g')//g")
     local PACKAGENAME=$(python_ndk_package_name $1 $2)-$1.tar.bz2
     local PACKAGE="$PACKAGE_DIR/$PACKAGENAME"
 

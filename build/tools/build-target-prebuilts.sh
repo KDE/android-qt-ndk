@@ -29,6 +29,9 @@ register_var_option "--arch=<list>" ARCHS "List of target archs to build for"
 PACKAGE_DIR=
 register_var_option "--package-dir=<path>" PACKAGE_DIR "Package toolchain into this directory"
 
+BUILD_DIR=
+register_var_option "--build-dir=<path>" BUILD_DIR "Build toolchain into this directory"
+
 register_jobs_option
 
 PROGRAM_PARAMETERS="<toolchain-src-dir>"
@@ -70,6 +73,7 @@ if [ "$PACKAGE_DIR" ]; then
     fail_panic "Could not create package directory: $PACKAGE_DIR"
     FLAGS=$FLAGS" --package-dir=\"$PACKAGE_DIR\""
 fi
+
 FLAGS=$FLAGS" -j$NUM_JOBS"
 
 # First, gdbserver
@@ -77,25 +81,34 @@ for ARCH in $ARCHS; do
     GDB_TOOLCHAINS=$(get_default_toolchain_name_for_arch $ARCH)
     for GDB_TOOLCHAIN in $GDB_TOOLCHAINS; do
         dump "Building $GDB_TOOLCHAIN gdbserver binaries..."
-        run $BUILDTOOLS/build-gdbserver.sh "$SRC_DIR" "$NDK_DIR" "$GDB_TOOLCHAIN" $FLAGS
+        if [ "$BUILD_DIR" ]; then
+            mkdir -p "$BUILD_DIR-gdbserver-$ARCH"
+            BUILD_OUT_FLAGS="--build-out=\"$BUILD_DIR-gdbserver-$ARCH\""
+        fi
+        run $BUILDTOOLS/build-gdbserver.sh "$SRC_DIR" "$NDK_DIR" "$GDB_TOOLCHAIN" $FLAGS $BUILD_OUT_FLAGS
         fail_panic "Could not build $GDB_TOOLCHAIN gdb-server!"
     done
 done
+
+if [ "$BUILD_DIR" ]; then
+    mkdir -p "$BUILD_DIR"
+    BUILD_DIR_FLAGS="--build-dir=\"$BUILD_DIR\""
+fi
 
 FLAGS=$FLAGS" --ndk-dir=\"$NDK_DIR\""
 ABIS=$(convert_archs_to_abis $ARCHS)
 
 FLAGS=$FLAGS" --abis=$ABIS"
 dump "Building $ABIS gabi++ binaries..."
-run $BUILDTOOLS/build-gabi++.sh $FLAGS
+run $BUILDTOOLS/build-gabi++.sh $FLAGS $BUILD_DIR_FLAGS
 fail_panic "Could not build gabi++!"
 
 dump "Building $ABIS stlport binaries..."
-run $BUILDTOOLS/build-stlport.sh $FLAGS
+run $BUILDTOOLS/build-stlport.sh $FLAGS $BUILD_DIR_FLAGS
 fail_panic "Could not build stlport!"
 
 dump "Building $ABIS gnustl binaries..."
-run $BUILDTOOLS/build-gnu-libstdc++.sh $FLAGS "$SRC_DIR"
+run $BUILDTOOLS/build-gnu-libstdc++.sh $FLAGS $BUILD_DIR_FLAGS "$SRC_DIR"
 fail_panic "Could not build gnustl!"
 
 if [ "$PACKAGE_DIR" ]; then
