@@ -67,9 +67,8 @@ for PATCH in $PATCHES; do
     PATCHDIR=`dirname $PATCH`
     PATCHNAME=`basename $PATCH`
     log "Applying $PATCHNAME into $SRC_DIR/$PATCHDIR"
-    echo "Applying $PATCHNAME into $SRC_DIR/$PATCHDIR" >> /tmp/patching.log
-    cd $SRC_DIR/$PATCHDIR && patch -p1 < $PATCHES_DIR/$PATCH >> /tmp/patching.log 2>&1
-    fail_panic "Patch failure on $PATCHES_DIR/$PATCH!! Please check your patches directory!"
+    cd $SRC_DIR/$PATCHDIR && patch -p1 < $PATCHES_DIR/$PATCH
+    fail_panic "Patch failure with $PATCHES_DIR/$PATCH!! !! Please check your patches directory!"
 done
 
 dump "Done!"

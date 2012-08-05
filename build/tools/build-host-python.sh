@@ -50,6 +50,9 @@ for six different systems:
     --python-version=2.7.3 \
     --systems=linux-x86,linux-x86_64,windows,windows-x86_64,darwin-x86,darwin-x86_64"
 
+TOOLCHAIN_SRC_DIR=
+register_var_option "--toolchain-src-dir=<path>" TOOLCHAIN_SRC_DIR "Select toolchain source directory"
+
 PYTHON_VERSION=2.7.3
 register_var_option "--python-version=<version>" PYTHON_VERSION "Select Python version."
 
@@ -70,6 +73,10 @@ extract_parameters "$@"
 
 if [ -n "$PARAMETERS" ]; then
     panic "This script doesn't take parameters, only options. See --help"
+fi
+
+if [ -z "$TOOLCHAIN_SRC_DIR" ]; then
+    panic "Please use --toolchain-src-dir=<path> to select toolchain source directory."
 fi
 
 BH_HOST_SYSTEMS=$(commas_to_spaces $BH_HOST_SYSTEMS)
@@ -142,7 +149,6 @@ done
 TEMP_DIR=$BUILD_DIR/tmp
 # Download and unpack source packages from official sites
 ARCHIVE_DIR=$TEMP_DIR/archive
-SRC_DIR=$TEMP_DIR/src
 STAMP_DIR=$TEMP_DIR/timestamps
 BUILD_DIR=$TEMP_DIR/build-$HOST_TAG
 
@@ -151,22 +157,9 @@ mkdir -p $BUILD_DIR
 PROGDIR=`dirname $0`
 PROGDIR=$(cd $PROGDIR && pwd)
 
-# Sanity check for all Python versions
+# Sanity check for all Python versions.
 for VERSION in $(commas_to_spaces $PYTHON_VERSION); do
-    PYTHON_SRCDIR=$SRC_DIR/Python-$VERSION
-    if [ ! -d $PYTHON_SRCDIR ] ; then
-        mkdir -p $ARCHIVE_DIR
-        mkdir -p $SRC_DIR
-        VERSION_FOLDER=$(echo ${VERSION} | sed 's/\([0-9\.]*\).*/\1/')
-        dump "Downloading http://www.python.org/ftp/python/${VERSION}/Python-${VERSION}.tar.bz2"
-        download_package http://www.python.org/ftp/python/${VERSION}/Python-${VERSION}.tar.bz2
-        PATCHES_DIR="$PROGDIR/toolchain-patches/python/Python-${VERSION}"
-        PATCHES=$(find $PATCHES_DIR -name "*.patch" | sort)
-        dump "Patching Python-${VERSION} sources"
-        for PATCH in $PATCHES; do
-            (cd $SRC_DIR/Python-$VERSION && run patch -p1 < $PATCH)
-        done
-    fi
+    PYTHON_SRCDIR=$TOOLCHAIN_SRC_DIR/python/Python-$VERSION
     if [ ! -d "$PYTHON_SRCDIR" ]; then
         panic "Missing source directory: $PYTHON_SRCDIR"
     fi
@@ -217,7 +210,7 @@ arch_to_qemu_arch ()
 # $2: python version
 build_host_python ()
 {
-    local SRCDIR=$SRC_DIR/Python-$2
+    local SRCDIR=$TOOLCHAIN_SRC_DIR/python/Python-$2
     local BUILDDIR=$BH_BUILD_DIR/build-python-$1-$2
     local INSTALLDIR=$(python_build_install_dir $1 $2)
     local ARGS TEXT

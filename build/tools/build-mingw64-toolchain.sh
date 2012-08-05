@@ -405,7 +405,7 @@ if [ ! -d $MINGW_W64_SRC ]; then
     fi
 fi
 
-PATCHES_DIR="$PROGDIR/toolchain-patches/mingw-w64"
+PATCHES_DIR="$PROGDIR/toolchain-patches-host/mingw-w64"
 if [ -d "$PATCHES_DIR" ] ; then
     PATCHES=$(find "$PATCHES_DIR" -name "*.patch" | sort)
     echo "Patching mingw-w64-$MINGW_W64_VERSION"
