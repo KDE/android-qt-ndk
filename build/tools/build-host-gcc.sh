@@ -1080,6 +1080,9 @@ setup_host_env ()
     if [ -z "$NO_STRIP" ]; then
         CFLAGS="-O2 -Os -fomit-frame-pointer -s"
         CXXFLAGS=$CFLAGS
+    else
+        CFLAGS="-O0 -ggdb"
+        CXXFLAGS="-O0 -ggdb"
     fi
 
     # This should only used when building the target GCC libraries

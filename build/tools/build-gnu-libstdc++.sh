@@ -185,8 +185,12 @@ build_gnustl_for_abi ()
     if [ $LIBTYPE = "static" ]; then
         # Ensure we disable visibility for the static library to reduce the
         # size of the code that will be linked against it.
-        LIBTYPE_FLAGS="--enable-static --disable-shared --disable-visibility"
-        CXXFLAGS=$CXXFLAGS" -fvisibility=hidden -fvisibility-inlines-hidden"
+        # Note : I've had to disable this as otherwise linking tha .a into
+        #        sharedLib.so and subsequently linking that to application.so
+        #        doesn't work. Building two static variants may be better?
+        # LIBTYPE_FLAGS="--enable-static --disable-shared --disable-visibility"
+        # CXXFLAGS=$CXXFLAGS" -fvisibility=hidden -fvisibility-inlines-hidden"
+        LIBTYPE_FLAGS="--enable-static --disable-shared"
     else
         LIBTYPE_FLAGS="--disable-static --enable-shared"
         #LDFLAGS=$LDFLAGS" -lsupc++"
