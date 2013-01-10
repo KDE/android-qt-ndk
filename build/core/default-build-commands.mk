@@ -64,36 +64,28 @@ TARGET_DISABLE_RELRO_LDFLAGS := -Wl,-z,norelro -Wl,-z,lazy
 #
 define cmd-build-shared-library
 $(PRIVATE_CXX) \
-    -nostdlib -Wl,-soname,$(notdir $@) \
-    -Wl,-shared,-Bsymbolic \
-    $(call host-path,\
-        $(TARGET_CRTBEGIN_SO_O) \
+    -Wl,-soname,$(notdir $(LOCAL_BUILT_MODULE)) \
+    -shared \
+    --sysroot=$(call host-path,$(PRIVATE_SYSROOT)) \
     $(PRIVATE_LINKER_OBJECTS_AND_LIBRARIES) \
     $(PRIVATE_LDFLAGS) \
     $(PRIVATE_LDLIBS) \
-    $(call host-path,\
-        $(TARGET_CRTEND_SO_O)) \
-    -o $(call host-path,$@)
+    -o $(call host-path,$(LOCAL_BUILT_MODULE))
 endef
 
 define cmd-build-executable
 $(PRIVATE_CXX) \
-    -nostdlib -Bdynamic \
-    -Wl,-dynamic-linker,/system/bin/linker \
     -Wl,--gc-sections \
     -Wl,-z,nocopyreloc \
-    $(call host-path,\
-        $(TARGET_CRTBEGIN_DYNAMIC_O) \
+    --sysroot=$(call host-path,$(PRIVATE_SYSROOT)) \
     $(PRIVATE_LINKER_OBJECTS_AND_LIBRARIES) \
     $(PRIVATE_LDFLAGS) \
     $(PRIVATE_LDLIBS) \
-    $(call host-path,\
-        $(TARGET_CRTEND_O)) \
-    -o $(call host-path,$@)
+    -o $(call host-path,$(LOCAL_BUILT_MODULE))
 endef
 
 define cmd-build-static-library
-$(PRIVATE_AR) $(call host-path,$@) $(PRIVATE_AR_OBJECTS)
+$(PRIVATE_AR) $(call host-path,$(LOCAL_BUILT_MODULE)) $(PRIVATE_AR_OBJECTS)
 endef
 
 # The strip command is only used for shared libraries and executables.

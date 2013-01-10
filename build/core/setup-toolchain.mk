@@ -20,11 +20,20 @@
 $(call assert-defined,TARGET_PLATFORM TARGET_ARCH TARGET_ARCH_ABI)
 $(call assert-defined,NDK_APPS NDK_APP_STL)
 
+LLVM_VERSION_LIST := 2.6 2.7 2.8 2.9 3.0 3.1
+
 # Check that we have a toolchain that supports the current ABI.
 # NOTE: If NDK_TOOLCHAIN is defined, we're going to use it.
 #
 ifndef NDK_TOOLCHAIN
     TARGET_TOOLCHAIN_LIST := $(strip $(sort $(NDK_ABI.$(TARGET_ARCH_ABI).toolchains)))
+
+    # Filter out the Clang toolchain, so that we can keep GCC as the default
+    # toolchain.
+    $(foreach _ver,$(LLVM_VERSION_LIST), \
+        $(eval TARGET_TOOLCHAIN_LIST := \
+            $(filter-out %-clang$(_ver),$(TARGET_TOOLCHAIN_LIST))))
+
     ifndef TARGET_TOOLCHAIN_LIST
         $(call __ndk_info,There is no toolchain that supports the $(TARGET_ARCH_ABI) ABI.)
         $(call __ndk_info,Please modify the APP_ABI definition in $(NDK_APP_APPLICATION_MK) to use)
@@ -134,26 +143,26 @@ installed_modules: $(NDK_APP_GDBSERVER)
 
 $(NDK_APP_GDBSERVER): PRIVATE_NAME    := $(TOOLCHAIN_NAME)
 $(NDK_APP_GDBSERVER): PRIVATE_SRC     := $(TARGET_GDBSERVER)
-$(NDK_APP_GDBSERVER): PRIVATE_DST_DIR := $(NDK_APP_DST_DIR)
 $(NDK_APP_GDBSERVER): PRIVATE_DST     := $(NDK_APP_GDBSERVER)
+
+$(call generate-file-dir,$(NDK_APP_GDBSERVER))
 
 $(NDK_APP_GDBSERVER): clean-installed-binaries
 	@ $(HOST_ECHO) "Gdbserver      : [$(PRIVATE_NAME)] $(call pretty-dir,$(PRIVATE_DST))"
-	$(hide) $(call host-mkdir,$(PRIVATE_DST_DIR))
 	$(hide) $(call host-install,$(PRIVATE_SRC),$(PRIVATE_DST))
 
 installed_modules: $(NDK_APP_GDBSETUP)
 
 $(NDK_APP_GDBSETUP): PRIVATE_DST := $(NDK_APP_GDBSETUP)
-$(NDK_APP_GDBSETUP): PRIVATE_DST_DIR := $(NDK_APP_DST_DIR)
 $(NDK_APP_GDBSETUP): PRIVATE_SOLIB_PATH := $(TARGET_OUT)
 $(NDK_APP_GDBSETUP): PRIVATE_SRC_DIRS := $(SYSROOT)/usr/include
 
 $(NDK_APP_GDBSETUP):
 	@ $(HOST_ECHO) "Gdbsetup       : $(call pretty-dir,$(PRIVATE_DST))"
-	$(hide) $(call host-mkdir,$(PRIVATE_DST_DIR))
 	$(hide) $(HOST_ECHO) "set solib-search-path $(call host-path,$(PRIVATE_SOLIB_PATH))" > $(PRIVATE_DST)
 	$(hide) $(HOST_ECHO) "directory $(call host-path,$(call remove-duplicates,$(PRIVATE_SRC_DIRS)))" >> $(PRIVATE_DST)
+
+$(call generate-file-dir,$(NDK_APP_GDBSETUP))
 
 # This prevents parallel execution to clear gdb.setup after it has been written to
 $(NDK_APP_GDBSETUP): clean-installed-binaries

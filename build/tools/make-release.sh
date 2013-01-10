@@ -58,20 +58,39 @@ fi
 # we are on Linux and have the mingw32 compiler installed and
 # in our path.
 #
-HOST_SYSTEMS="$HOST_TAG"
+HOST_SYSTEMS="$HOST_TAG32"
 
 MINGW_GCC=
 if [ "$HOST_TAG" == "linux-x86" ] ; then
-    find_program MINGW_GCC i586-mingw32msvc-gcc
+    find_mingw_toolchain
     if [ -n "$MINGW_GCC" ] ; then
-        HOST_SYSTEMS="$HOST_SYSTEMS windows"
+        HOST_SYSTEMS="$HOST_SYSTEMS,windows"
     fi
 fi
 if [ -n "$DARWIN_SSH" ] ; then
-    HOST_SYSTEMS="$HOST_SYSTEMS darwin-x86"
+    HOST_SYSTEMS="$HOST_SYSTEMS,darwin-x86"
 fi
 
 register_var_option "--systems=<list>" HOST_SYSTEMS "List of host systems to build for"
+
+# Check if windows is specified w/o linux-x86
+if [ "$HOST_SYSTEMS" != "${HOST_SYSTEMS%windows*}" ] ; then
+    if [ -z "$MINGW_GCC" ]; then
+        echo "ERROR: Can't find mingw tool with --systems=windows"
+        exit 1
+    fi
+    if [ "$HOST_SYSTEMS" = "${HOST_SYSTEMS%linux-x86*}" ] ; then
+        echo "ERROR: Can't specify --systems=windows w/o also specifying linux-x86"
+        exit 1
+    fi
+fi
+HOST_SYSTEMS_FLAGS="--systems=$HOST_SYSTEMS"
+# Filter out darwin-x86 in $HOST_SYSTEMS_FLAGS, because
+# 1) On linux, cross-compiling is done via "--darwin-ssh".  Keeping darwin-x86 in --systems list
+#    actually disable --darwin-ssh later on.
+# 2) On MacOSX, darwin-x86 is the default, no need to be explicit.
+#
+HOST_SYSTEMS_FLAGS=$(echo "$HOST_SYSTEMS_FLAGS" | sed -e 's/darwin-x86//')
 
 TOOLCHAIN_SRCDIR=
 register_var_option "--toolchain-src-dir=<path>" TOOLCHAIN_SRCDIR "Use toolchain sources from <path>"
@@ -195,7 +214,7 @@ if timestamp_check build-prebuilts; then
     PREBUILT_DIR="$RELEASE_DIR/prebuilt"
     if timestamp_check build-host-prebuilts; then
         dump "Building host toolchain binaries..."
-        run $ANDROID_NDK_ROOT/build/tools/rebuild-all-prebuilt.sh --package-dir="$PREBUILT_DIR" --build-dir="$RELEASE_DIR/build" "$TOOLCHAIN_SRCDIR"
+        run $ANDROID_NDK_ROOT/build/tools/rebuild-all-prebuilt.sh --package-dir="$PREBUILT_DIR" --build-dir="$RELEASE_DIR/build" "$TOOLCHAIN_SRCDIR" "$HOST_SYSTEMS_FLAGS"
         fail_panic "Can't build $HOST_SYSTEM binaries."
         timestamp_set build-host-prebuilts
     fi
@@ -205,14 +224,6 @@ if timestamp_check build-prebuilts; then
             run $ANDROID_NDK_ROOT/build/tools/rebuild-all-prebuilt.sh --package-dir="$PREBUILT_DIR" --darwin-ssh="$DARWIN_SSH" "$TOOLCHAIN_SRCDIR"
             fail_panic "Can't build Darwin binaries!"
             timestamp_set build-darwin-prebuilts
-        fi
-    fi
-    if [ -n "$MINGW_GCC" ] ; then
-        if timestamp_check build-mingw-prebuilts; then
-            dump "Building windows toolchain binaries..."
-            run $ANDROID_NDK_ROOT/build/tools/rebuild-all-prebuilt.sh --package-dir="$PREBUILT_DIR" --build-dir="$RELEASE_DIR/build-mingw" --mingw "$TOOLCHAIN_SRCDIR"
-            fail_panic "Can't build windows binaries."
-            timestamp_set build-mingw-prebuilts
         fi
     fi
     timestamp_set build-prebuilts

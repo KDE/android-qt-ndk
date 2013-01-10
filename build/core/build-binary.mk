@@ -80,7 +80,8 @@ ifdef bad_cpp_extensions
 endif
 LOCAL_CPP_EXTENSION := $(strip $(LOCAL_CPP_EXTENSION))
 ifeq ($(LOCAL_CPP_EXTENSION),)
-  LOCAL_CPP_EXTENSION := .cpp
+  # Match the default GCC C++ extensions.
+  LOCAL_CPP_EXTENSION := .cc .cp .cxx .cpp .CPP .c++ .C
 else
 endif
 
@@ -339,6 +340,8 @@ ifeq ($(LOCAL_SHORT_COMMANDS),true)
 
 endif
 
+$(call generate-file-dir,$(LOCAL_BUILT_MODULE))
+
 $(LOCAL_BUILT_MODULE): PRIVATE_STATIC_LIBRARIES := $(static_libraries)
 $(LOCAL_BUILT_MODULE): PRIVATE_WHOLE_STATIC_LIBRARIES := $(whole_static_libraries)
 $(LOCAL_BUILT_MODULE): PRIVATE_SHARED_LIBRARIES := $(shared_libraries)
@@ -356,16 +359,18 @@ $(LOCAL_BUILT_MODULE): PRIVATE_CC := $(TARGET_CC)
 $(LOCAL_BUILT_MODULE): PRIVATE_AR := $(TARGET_AR) $(TARGET_ARFLAGS)
 $(LOCAL_BUILT_MODULE): PRIVATE_AR_OBJECTS := $(ar_objects)
 $(LOCAL_BUILT_MODULE): PRIVATE_SYSROOT := $(SYSROOT)
+$(LOCAL_BUILT_MODULE): PRIVATE_BUILD_SHARED_LIB := $(cmd-build-shared-library)
+$(LOCAL_BUILT_MODULE): PRIVATE_BUILD_STATIC_LIB := $(cmd-build-static-library)
+$(LOCAL_BUILT_MODULE): PRIVATE_BUILD_EXECUTABLE := $(cmd-build-executable)
 
 #
 # If this is a static library module
 #
 ifeq ($(call module-get-class,$(LOCAL_MODULE)),STATIC_LIBRARY)
 $(LOCAL_BUILT_MODULE): $(LOCAL_OBJECTS)
-	@ $(call host-mkdir,$(dir $@))
 	@ $(HOST_ECHO) "StaticLibrary  : $(PRIVATE_NAME)"
 	$(hide) $(call host-rm,$@)
-	$(hide) $(cmd-build-static-library)
+	$(hide) $(PRIVATE_BUILD_STATIC_LIB)
 
 ALL_STATIC_LIBRARIES += $(LOCAL_BUILT_MODULE)
 endif
@@ -375,9 +380,8 @@ endif
 #
 ifeq ($(call module-get-class,$(LOCAL_MODULE)),SHARED_LIBRARY)
 $(LOCAL_BUILT_MODULE): $(LOCAL_OBJECTS)
-	@ $(call host-mkdir,$(dir $@))
 	@ $(HOST_ECHO) "SharedLibrary  : $(PRIVATE_NAME)"
-	$(hide) $(cmd-build-shared-library)
+	$(hide) $(PRIVATE_BUILD_SHARED_LIB)
 
 ALL_SHARED_LIBRARIES += $(LOCAL_BUILT_MODULE)
 endif
@@ -387,9 +391,8 @@ endif
 #
 ifeq ($(call module-get-class,$(LOCAL_MODULE)),EXECUTABLE)
 $(LOCAL_BUILT_MODULE): $(LOCAL_OBJECTS)
-	@ $(call host-mkdir,$(dir $@))
 	@ $(HOST_ECHO) "Executable     : $(PRIVATE_NAME)"
-	$(hide) $(cmd-build-executable)
+	$(hide) $(PRIVATE_BUILD_EXECUTABLE)
 
 ALL_EXECUTABLES += $(LOCAL_BUILT_MODULE)
 endif
@@ -399,7 +402,6 @@ endif
 #
 ifeq ($(call module-is-prebuilt,$(LOCAL_MODULE)),$(true))
 $(LOCAL_BUILT_MODULE): $(LOCAL_OBJECTS)
-	@ $(call host-mkdir,$(dir $@))
 	@ $(HOST_ECHO) "Prebuilt       : $(PRIVATE_NAME) <= $(call pretty-dir,$(dir $<))"
 	$(hide) $(call host-cp,$<,$@)
 endif
@@ -408,15 +410,19 @@ endif
 # If this is an installable module
 #
 ifeq ($(call module-is-installable,$(LOCAL_MODULE)),$(true))
-$(LOCAL_INSTALLED): PRIVATE_NAME    := $(notdir $(LOCAL_BUILT_MODULE))
-$(LOCAL_INSTALLED): PRIVATE_SRC     := $(LOCAL_BUILT_MODULE)
-$(LOCAL_INSTALLED): PRIVATE_DST_DIR := $(NDK_APP_DST_DIR)
-$(LOCAL_INSTALLED): PRIVATE_DST     := $(LOCAL_INSTALLED)
-$(LOCAL_INSTALLED): PRIVATE_STRIP   := $(TARGET_STRIP)
+$(LOCAL_INSTALLED): PRIVATE_NAME      := $(notdir $(LOCAL_BUILT_MODULE))
+$(LOCAL_INSTALLED): PRIVATE_SRC       := $(LOCAL_BUILT_MODULE)
+$(LOCAL_INSTALLED): PRIVATE_DST_DIR   := $(NDK_APP_DST_DIR)
+$(LOCAL_INSTALLED): PRIVATE_DST       := $(LOCAL_INSTALLED)
+$(LOCAL_INSTALLED): PRIVATE_STRIP     := $(TARGET_STRIP)
+$(LOCAL_INSTALLED): PRIVATE_STRIP_CMD := $(call cmd-strip, $(PRIVATE_DST))
 
 $(LOCAL_INSTALLED): $(LOCAL_BUILT_MODULE) clean-installed-binaries
 	@$(HOST_ECHO) "Install        : $(PRIVATE_NAME) => $(call pretty-dir,$(PRIVATE_DST))"
-	$(hide) $(call host-mkdir,$(PRIVATE_DST_DIR))
 	$(hide) $(call host-install,$(PRIVATE_SRC),$(PRIVATE_DST))
-	$(hide) $(call cmd-strip, $(PRIVATE_DST))
+	$(hide) $(PRIVATE_STRIP_CMD)
+
+$(call generate-dir,$(NDK_APP_DST_DIR))
+$(LOCAL_INSTALLED): $(NDK_APP_DST_DIR)
+
 endif
