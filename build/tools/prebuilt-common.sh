@@ -562,7 +562,8 @@ handle_mingw ()
                 ;;
         esac
         if [ "$TRY64" = "yes" ]; then
-            ABI_CONFIGURE_HOST=amd64-mingw32msvc
+            ABI_CONFIGURE_HOST=x86_64-pc-mingw32msvc
+            HOST_TAG=windows-x86_64
         else
             # NOTE: The canadian-cross build of Binutils 2.19 will fail if you
             #        use i586-pc-mingw32msvc here. Binutils 2.21 will work ok
@@ -570,9 +571,9 @@ handle_mingw ()
             #       Use i586-pc-mingw32msvc here because wrappers are generated
             #        using this name
             ABI_CONFIGURE_HOST=i586-pc-mingw32msvc
+            HOST_TAG=windows
         fi
         HOST_OS=windows
-        HOST_TAG=windows
         HOST_EXE=.exe
     fi
 }
@@ -600,15 +601,13 @@ find_mingw_toolchain ()
     # so we just add more prefixes to the list to check.
     if [ "$HOST_ARCH" = "x86_64" -a "$TRY64" = "yes" ]; then
         BINPREFIX=x86_64-pc-mingw32msvc-
-        BINPREFIXLST="x86_64-pc-mingw32msvc- amd64-mingw32msvc-
-          x86_64-w64-mingw32-"
+        BINPREFIXLST="x86_64-pc-mingw32msvc- x86_64-w64-mingw32- amd64-mingw32msvc-"
         DEBIAN_NAME=mingw64
     else
         # we are trying 32 bit anyway, so forcing it to avoid build issues
         force_32bit_binaries
         BINPREFIX=i586-pc-mingw32msvc-
-        BINPREFIXLST="i586-pc-mingw32msvc- i686-pc-mingw32- i686-w64-mingw32-
-          i586-mingw32msvc-"
+        BINPREFIXLST="i586-pc-mingw32msvc- i686-pc-mingw32- i586-mingw32msvc- i686-w64-mingw32-"
         DEBIAN_NAME=mingw32
     fi
 
@@ -654,12 +653,19 @@ prepare_mingw_toolchain ()
     $NDK_BUILDTOOLS_PATH/gen-toolchain-wrapper.sh --src-prefix=$BINPREFIX --dst-prefix="$DST_PREFIX" "$MINGW_WRAP_DIR"
     # generate wrappers for BUILD toolchain
     # this is required for mingw build to avoid tools canadian cross configuration issues
-    LEGACY_TOOLCHAIN_DIR="$ANDROID_NDK_ROOT/../prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.7-4.6"
-    $NDK_BUILDTOOLS_PATH/gen-toolchain-wrapper.sh --src-prefix=x86_64-linux-gnu- \
-            --dst-prefix="$LEGACY_TOOLCHAIN_DIR/bin/x86_64-linux-" "$MINGW_WRAP_DIR"
+    # 32-bit BUILD toolchain
     LEGACY_TOOLCHAIN_DIR="$ANDROID_NDK_ROOT/../prebuilts/gcc/linux-x86/host/i686-linux-glibc2.7-4.6"
     $NDK_BUILDTOOLS_PATH/gen-toolchain-wrapper.sh --src-prefix=i386-linux-gnu- \
             --dst-prefix="$LEGACY_TOOLCHAIN_DIR/bin/i686-linux-" "$MINGW_WRAP_DIR"
+    $NDK_BUILDTOOLS_PATH/gen-toolchain-wrapper.sh --src-prefix=i386-pc-linux-gnu- \
+            --dst-prefix="$LEGACY_TOOLCHAIN_DIR/bin/i686-linux-" "$MINGW_WRAP_DIR"
+    # 64-bit BUILD toolchain.  libbfd is still built in 32-bit.  Use gcc-sdk instead
+    # of x86_64-linux-glibc2.7-4.6 which is a 64-bit-only tol
+    LEGACY_TOOLCHAIN_DIR="$ANDROID_NDK_ROOT/../prebuilts/tools/gcc-sdk"
+    $NDK_BUILDTOOLS_PATH/gen-toolchain-wrapper.sh --src-prefix=x86_64-linux-gnu- \
+            --dst-prefix="$LEGACY_TOOLCHAIN_DIR/" "$MINGW_WRAP_DIR"
+    $NDK_BUILDTOOLS_PATH/gen-toolchain-wrapper.sh --src-prefix=x86_64-pc-linux-gnu- \
+            --dst-prefix="$LEGACY_TOOLCHAIN_DIR/" "$MINGW_WRAP_DIR"
     fail_panic "Could not create mingw wrapper toolchain in $MINGW_WRAP_DIR"
 
     export PATH=$MINGW_WRAP_DIR:$PATH
@@ -724,12 +730,19 @@ prepare_common_build ()
     # We only do this if the CC variable is not defined to a given value
     # and the --mingw or --try-64 options are not used.
     #
-    if [ "$HOST_OS" = "linux" -a -z "$CC" -a "$MINGW" != "yes" -a "$TRY64" != "yes" ]; then
-        LEGACY_TOOLCHAIN_DIR="$ANDROID_NDK_ROOT/../prebuilts/gcc/linux-x86/host/i686-linux-glibc2.7-4.6"
+    if [ -z "$CC" -a "$MINGW" != "yes" ]; then
+        LEGACY_TOOLCHAIN_DIR=
+        if [ "$HOST_OS" = "linux" ]; then
+            LEGACY_TOOLCHAIN_DIR="$ANDROID_NDK_ROOT/../prebuilts/tools/gcc-sdk"
+            LEGACY_TOOLCHAIN_PREFIX="$LEGACY_TOOLCHAIN_DIR/"
+        elif [ "$HOST_OS" = "darwin" ]; then
+            LEGACY_TOOLCHAIN_DIR="$ANDROID_NDK_ROOT/../prebuilts/gcc/darwin-x86/host/i686-apple-darwin-4.2.1/bin"
+            LEGACY_TOOLCHAIN_PREFIX="$LEGACY_TOOLCHAIN_DIR/i686-apple-darwin10-"
+        fi
         if [ -d "$LEGACY_TOOLCHAIN_DIR" ] ; then
-            log "Forcing generation of Linux binaries with legacy toolchain"
-            CC="$LEGACY_TOOLCHAIN_DIR/bin/i686-linux-gcc"
-            CXX="$LEGACY_TOOLCHAIN_DIR/bin/i686-linux-g++"
+            log "Forcing generation of $HOST_OS binaries with legacy toolchain"
+            CC="${LEGACY_TOOLCHAIN_PREFIX}gcc"
+            CXX="${LEGACY_TOOLCHAIN_PREFIX}g++"
         fi
     fi
 
@@ -739,12 +752,8 @@ prepare_common_build ()
     STRIP=${STRIP:-strip}
     case $HOST_TAG in
         darwin-*)
-            # Try to build with Tiger SDK if available
-            if check_darwin_sdk /Developer/SDKs/MacOSX10.4.sdku 10.4; then
-                log "Generating Tiger-compatible binaries!"
-            # Otherwise with Leopard SDK
-            elif check_darwin_sdk /Developer/SDKs/MacOSX10.5.sdk 10.5; then
-                log "Generating Leopard-compatible binaries!"
+            if check_darwin_sdk /Developer/SDKs/MacOSX10.6.sdk 10.6; then
+                log "Generating Snow Leopard-compatible binaries!"
             else
                 local version=`sw_vers -productVersion`
                 log "Generating $version-compatible binaries!"
@@ -768,7 +777,6 @@ prepare_common_build ()
     int test_array[1-2*(sizeof(void*) != 4)];
 EOF
     log_n "Checking whether the compiler generates 32-bit binaries..."
-    HOST_BITS=32
     log2 $CC $HOST_CFLAGS -c -o $TMPO $TMPC
     $NDK_CCACHE $CC $HOST_CFLAGS -c -o $TMPO $TMPC >$TMPL 2>&1
     if [ $? != 0 ] ; then
@@ -779,15 +787,18 @@ EOF
             #        will not work well with the GCC toolchain scripts.
             CC="$CC -m32"
             CXX="$CXX -m32"
-        else
-            HOST_BITS=64
         fi
     else
         log "yes"
+        if [ "$TRY64" = "yes" ]; then
+            CC="$CC -m64"
+            CXX="$CXX -m64"
+        fi
     fi
 
-    # For now, we only support building 32-bit binaries anyway
-    if [ "$TRY64" != "yes" ]; then
+    if [ "$TRY64" = "yes" ]; then
+        HOST_BITS=64
+    else
         force_32bit_binaries  # to modify HOST_TAG and others
         HOST_BITS=32
     fi
@@ -878,11 +889,12 @@ parse_toolchain_name ()
         ABI="armeabi"
         ABI_CONFIGURE_TARGET="arm-linux-androideabi"
         ABI_CONFIGURE_EXTRA_FLAGS="--with-arch=armv5te"
-        # Disable ARM Gold linker for now, it doesn't build on Windows, it
-        # crashes with SIGBUS on Darwin, and produces weird executables on
-        # linux that strip complains about... Sigh.
-        #ABI_CONFIGURE_EXTRA_FLAGS="$ABI_CONFIGURE_EXTRA_FLAGS --enable-gold=both/gold"
-
+        ;;
+    arm-eabi-*)
+        ARCH="arm"
+        ABI="armeabi"
+        ABI_CONFIGURE_TARGET="arm-eabi"
+        ABI_CONFIGURE_EXTRA_FLAGS="--with-arch=armv5te --disable-gold"
         ;;
     x86-*)
         ARCH="x86"
@@ -907,10 +919,10 @@ parse_toolchain_name ()
         ABI_CXXFLAGS_FOR_TARGET="-frtti -fpic"
         # Add --disable-fixed-point to disable fixed-point support
         # Add --disable-threads for eh_frame handling in a single thread
-        ABI_CONFIGURE_EXTRA_FLAGS="$ABI_CONFIGURE_EXTRA_FLAGS --disable-fixed-point --disable-threads"
+        ABI_CONFIGURE_EXTRA_FLAGS="$ABI_CONFIGURE_EXTRA_FLAGS --disable-fixed-point"
         ;;
     * )
-        echo "Invalid toolchain specified. Expected (arm-linux-androideabi-*|x86-*|mips*)"
+        echo "Invalid toolchain specified. Expected (arm-linux-androideabi-*|arm-eabi-*|x86-*|mips*)"
         echo ""
         print_help
         exit 1
@@ -950,7 +962,11 @@ get_prebuilt_host_tag ()
 {
     local RET=$HOST_TAG
     if [ "$MINGW" = "yes" ]; then
-        RET=windows
+        if [ "$TRY64" = "no" ]; then
+            RET=windows
+        else
+            RET=windows-x86_64
+        fi
     fi
     case $RET in
         linux-x86_64)

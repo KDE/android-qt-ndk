@@ -62,6 +62,12 @@ register_var_option "--mpfr-version=<version>" MPFR_VERSION "Specify mpfr versio
 MPC_VERSION=$DEFAULT_MPC_VERSION
 register_var_option "--mpc-version=<version>" MPC_VERSION "Specify mpc version"
 
+CLOOG_VERSION=$DEFAULT_CLOOG_VERSION
+register_var_option "--cloog-version=<version>" CLOOG_VERSION "Specify cloog version"
+
+PPL_VERSION=$DEFAULT_PPL_VERSION
+register_var_option "--ppl-version=<version>" PPL_VERSION "Specify ppl version"
+
 PACKAGE_DIR=
 register_var_option "--package-dir=<path>" PACKAGE_DIR "Create archive tarball in specific directory"
 
@@ -162,8 +168,10 @@ fi
 
 set_toolchain_ndk $NDK_DIR $TOOLCHAIN
 
-dump "Using C compiler: $CC"
-dump "Using C++ compiler: $CXX"
+if [ "$MINGW" != "yes" ] ; then
+    dump "Using C compiler: $CC"
+    dump "Using C++ compiler: $CXX"
+fi
 
 rm -rf $BUILD_OUT
 mkdir -p $BUILD_OUT
@@ -216,20 +224,43 @@ export CXXFLAGS_FOR_TARGET="$ABI_CXXFLAGS_FOR_TARGET"
 export ABI=$HOST_GMP_ABI
 # -Wno-error is needed because our gdb-6.6 sources use -Werror by default
 # and fail to build with recent GCC versions.
-export CFLAGS="-Wno-error"
+export CFLAGS=$HOST_CFLAGS" -O2 -s -Wno-error"
 
 # This extra flag is used to slightly speed up the build
 EXTRA_CONFIG_FLAGS="--disable-bootstrap"
 
 # This is to disable GCC 4.6 specific features that don't compile well
 # the flags are ignored for older GCC versions.
-EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --disable-libquadmath --disable-plugin"
+EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --disable-libquadmath"
+# Plugins are not supported well before 4.7. On 4.7 it's required to have
+# -flto working. Flag --enable-plugins (note 's') is actually for binutils,
+# this is compiler requirement to have binutils configured this way. Flag
+# --disable-plugin is for gcc.
+case "$GCC_VERSION" in
+    4.4.3|4.6)
+        EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --disable-plugin"
+        ;;
+    *)
+        EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --enable-plugins"
+        ;;
+esac
+
+# Enable OpenMP
+EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --enable-libgomp"
 
 # Enable Gold as default
 case "$TOOLCHAIN" in
     # Note that only ARM and X86 are supported
-    x86-4.6|arm-linux-androideabi-4.6)
+    x86-4.6|arm-linux-androideabi-4.6|x86-4.7|arm-linux-androideabi-4.7)
         EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --enable-gold=default"
+    ;;
+esac
+
+# Enable Graphite
+case "$TOOLCHAIN" in
+    # Only for 4.6 and 4.7 for now
+    *-4.6|*-4.7)
+        EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --enable-graphite=yes --with-cloog-version=$CLOOG_VERSION --with-ppl-version=$PPL_VERSION"
     ;;
 esac
 
@@ -249,6 +280,7 @@ $BUILD_SRCDIR/configure --target=$ABI_CONFIGURE_TARGET \
                         --with-gcc-version=$GCC_VERSION \
                         --with-gdb-version=$GDB_VERSION \
                         --with-gxx-include-dir=$TOOLCHAIN_BUILD_PREFIX/include/c++/$GCC_VERSION \
+                        --with-bugurl=$DEFAULT_ISSUE_TRACKER_URL \
                         $EXTRA_CONFIG_FLAGS \
                         $ABI_CONFIGURE_EXTRA_FLAGS
 if [ $? != 0 ] ; then
@@ -299,6 +331,16 @@ fi
 # copy to toolchain path
 run copy_directory "$TOOLCHAIN_BUILD_PREFIX" "$TOOLCHAIN_PATH"
 
+if [ "$MINGW" = "yes" ] ; then
+    # For some reasons, libraries in $ABI_CONFIGURE_TARGET (*) are not installed.
+    # Hack here to copy them over.
+    # (*) FYI: libgcc.a and libgcov.a not installed there in the first place
+    INSTALL_TARGET_LIB_PATH="$BUILD_OUT/host-$ABI_CONFIGURE_BUILD/install/$ABI_CONFIGURE_TARGET/lib"
+    TOOLCHAIN_TARGET_LIB_PATH="$TOOLCHAIN_PATH/$ABI_CONFIGURE_TARGET/lib"
+    (cd "$INSTALL_TARGET_LIB_PATH" &&
+        find . \( -name "*.a" -o -name "*.la" -o -name "*.spec" \) -exec install -D "{}" "$TOOLCHAIN_TARGET_LIB_PATH/{}" \;)
+fi
+
 # don't forget to copy the GPL and LGPL license files
 run cp -f $TOOLCHAIN_LICENSES/COPYING $TOOLCHAIN_LICENSES/COPYING.LIB $TOOLCHAIN_PATH
 
@@ -310,10 +352,11 @@ run rm -rf $TOOLCHAIN_PATH/share
 run rm -rf $TOOLCHAIN_PATH/lib/gcc/$ABI_CONFIGURE_TARGET/*/install-tools
 run rm -rf $TOOLCHAIN_PATH/lib/gcc/$ABI_CONFIGURE_TARGET/*/plugin
 run rm -rf $TOOLCHAIN_PATH/libexec/gcc/$ABI_CONFIGURE_TARGET/*/install-tools
-run rm -rf $TOOLCHAIN_PATH/lib32/libiberty.a
+run rm -rf $TOOLCHAIN_PATH/lib/libiberty.a
 run rm -rf $TOOLCHAIN_PATH/$ABI_CONFIGURE_TARGET/lib/libiberty.a
 run rm -rf $TOOLCHAIN_PATH/$ABI_CONFIGURE_TARGET/lib/*/libiberty.a
 run rm -rf $TOOLCHAIN_PATH/$ABI_CONFIGURE_TARGET/lib/*/*/libiberty.a
+find $TOOLCHAIN_PATH -name "*.la" -exec rm -f {} \;
 
 # Remove libstdc++ for now (will add it differently later)
 # We had to build it to get libsupc++ which we keep.

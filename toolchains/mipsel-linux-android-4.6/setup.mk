@@ -34,18 +34,22 @@ TARGET_CFLAGS := \
         -fgcse-after-reload \
         -frerun-cse-after-loop \
         -frename-registers \
+        -no-canonical-prefixes
 
-TARGET_LDFLAGS :=
+TARGET_LDFLAGS := -no-canonical-prefixes
 
 TARGET_C_INCLUDES := \
     $(SYSROOT)/usr/include
 
-TARGET_mips_release_CFLAGS :=  -O2 \
-                               -fomit-frame-pointer \
-                               -funswitch-loops     \
-                               -finline-limit=300
+TARGET_mips_release_CFLAGS := -O2 \
+                              -g \
+                              -DNDEBUG \
+                              -fomit-frame-pointer \
+                              -funswitch-loops     \
+                              -finline-limit=300
 
-TARGET_mips_debug_CFLAGS := -O0 -g \
+TARGET_mips_debug_CFLAGS := -O0 \
+                            -g \
                             -fno-omit-frame-pointer
 
 

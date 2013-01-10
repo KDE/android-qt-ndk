@@ -72,7 +72,7 @@ ifndef APP_PLATFORM
         _local_props := $(strip $(wildcard $(APP_PROJECT_PATH)/default.properties))
     endif
     ifdef _local_props
-        APP_PLATFORM := $(strip $(shell $(HOST_AWK) -f $(BUILD_AWK)/extract-platform.awk $(_local_props)))
+        APP_PLATFORM := $(strip $(shell $(HOST_AWK) -f $(BUILD_AWK)/extract-platform.awk $(call host-path,$(_local_props))))
         $(call ndk_log,  Found APP_PLATFORM=$(APP_PLATFORM) in $(_local_props))
     else
         APP_PLATFORM := android-3
@@ -83,13 +83,29 @@ endif
 # SPECIAL CASES:
 # 1) android-6 and android-7 are the same thing as android-5
 # 2) android-10 .. 13 is the same thing as android-9
-ifneq (,$(filter android-6 android-7,$(APP_PLATFORM)))
+#
+APP_PLATFORM_LEVEL := $(strip $(subst android-,,$(APP_PLATFORM)))
+ifneq (,$(filter 6 7,$(APP_PLATFORM_LEVEL)))
     APP_PLATFORM := android-5
-    $(call ndk_log,  Adjusting APP_PLATFORM to $(APP_PLATFORM))
+    $(call ndk_log,  Adjusting APP_PLATFORM android-$(APP_PLATFORM_LEVEL) to $(APP_PLATFORM))
 endif
-ifneq (,$(filter android-10 android-11 android-12 android-13,$(APP_PLATFORM)))
+ifneq (,$(filter 10 11 12 13,$(APP_PLATFORM_LEVEL)))
     APP_PLATFORM := android-9
-    $(call ndk_log,  Adjusting APP_PLATFORM to $(APP_PLATFORM))
+    $(call ndk_log,  Adjusting APP_PLATFORM android-$(APP_PLATFORM_LEVEL) to $(APP_PLATFORM))
+endif
+
+# If APP_PIE isn't defined, set it to true for android-16 and above
+#
+APP_PIE := $(strip $(APP_PIE))
+$(call ndk_log,  APP_PIE is $(APP_PIE))
+ifndef APP_PIE
+    ifneq (,$(call gte,$(APP_PLATFORM_LEVEL),16))
+        APP_PLATFORM := android-14
+        $(call ndk_log,  Adjusting APP_PLATFORM android-$(APP_PLATFORM_LEVEL) to $(APP_PLATFORM) and enabling -fPIE)
+        APP_PIE := true
+    else
+        APP_PIE := false
+    endif
 endif
 
 # Check that the value of APP_PLATFORM corresponds to a known platform
@@ -100,6 +116,17 @@ ifdef _bad_platform
     $(call ndk_log,Application $(_app) targets unknown platform '$(_bad_platform)')
     APP_PLATFORM := android-$(NDK_MAX_PLATFORM_LEVEL)
     $(call ndk_log,Switching to $(APP_PLATFORM))
+endif
+
+# Check platform level (after adjustment) against android:minSdkVersion in AndroidManifest.xml
+#
+APP_MANIFEST := $(strip $(wildcard $(APP_PROJECT_PATH)/AndroidManifest.xml))
+APP_PLATFORM_LEVEL := $(strip $(subst android-,,$(APP_PLATFORM)))
+ifdef APP_MANIFEST
+  APP_MIN_PLATFORM_LEVEL := $(shell $(HOST_AWK) -f $(BUILD_AWK)/extract-minsdkversion.awk $(call host-path,$(APP_MANIFEST)))
+  ifneq (,$(call gt,$(APP_PLATFORM_LEVEL),$(APP_MIN_PLATFORM_LEVEL)))
+    $(call __ndk_warning,WARNING: APP_PLATFORM $(APP_PLATFORM) is larger than android:minSdkVersion $(APP_MIN_PLATFORM_LEVEL) in $(APP_MANIFEST))
+  endif
 endif
 
 # Check that the value of APP_ABI corresponds to known ABIs
@@ -158,7 +185,7 @@ endif
 #
 ifdef APP_DEBUG
   APP_DEBUGGABLE := $(APP_DEBUG)
-  ifdef NDK_LOG
+  ifeq ($(NDK_LOG),1)
     ifeq ($(APP_DEBUG),true)
       $(call ndk_log,Application '$(_app)' forced debuggable through NDK_DEBUG)
     else
@@ -168,11 +195,10 @@ ifdef APP_DEBUG
 else
   # NOTE: To make unit-testing simpler, handle the case where there is no manifest.
   APP_DEBUGGABLE := false
-  APP_MANIFEST := $(strip $(wildcard $(APP_PROJECT_PATH)/AndroidManifest.xml))
   ifdef APP_MANIFEST
-    APP_DEBUGGABLE := $(shell $(HOST_AWK) -f $(BUILD_AWK)/extract-debuggable.awk $(APP_MANIFEST))
+    APP_DEBUGGABLE := $(shell $(HOST_AWK) -f $(BUILD_AWK)/extract-debuggable.awk $(call host-path,$(APP_MANIFEST)))
   endif
-  ifdef NDK_LOG
+  ifeq ($(NDK_LOG),1)
     ifeq ($(APP_DEBUGGABLE),true)
       $(call ndk_log,Application '$(_app)' *is* debuggable)
     else
@@ -205,15 +231,8 @@ else
     endif
 endif
 
-# set release/debug build flags. We always use the -g flag because
-# we generate symbol versions of the binaries that are later stripped
-# when they are copied to the final project's libs/<abi> directory.
-#
-ifeq ($(APP_OPTIM),debug)
-  APP_CFLAGS := -O0 -g $(APP_CFLAGS)
-else
-  APP_CFLAGS := -O2 -DNDEBUG -g $(APP_CFLAGS)
-endif
+APP_CFLAGS := $(strip $(APP_CFLAGS))
+APP_LDFLAGS := $(strip $(APP_LDFLAGS))
 
 # Check that APP_STL is defined. If not, use the default value (system)
 # otherwise, check that the name is correct.
@@ -223,8 +242,6 @@ ifndef APP_STL
 else
     $(call ndk-stl-check,$(APP_STL))
 endif
-
-
 
 $(if $(call get,$(_map),defined),\
   $(call __ndk_info,Weird, the application $(_app) is already defined by $(call get,$(_map),defined))\

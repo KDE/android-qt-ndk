@@ -13,10 +13,13 @@ macro_val () {
 }
 
 # Read all the built-in macros, and assign them to our own variables.
-MACRO_LINES=$(${PREFIX}gcc $CFLAGS -dM -E - < /dev/null | sort -u | tr ' ' '^^^' | tr '"' '~')
+# For cygwin/mingw, don't use $NULL defined in parent run.sh to NUL, because
+# NUL can't be used as input.  The non-existance /dev/null works well.
+MACRO_LINES=$($CC $CFLAGS -dM -E - < /dev/null | sort -u | tr ' ' '^^^' | tr '"' '~')
 
 for LINE in $MACRO_LINES; do
-    LINE=$(echo "$LINE" | tr '^^^' ' ')
+    # for cygwin, it's important to remove trailing '\r' as well
+    LINE=$(echo "$LINE" | tr '^^^' ' ' | tr '\r' ' ')
     VARNAME=$(echo "$LINE" | cut -d' ' -f 2)
     VARVALUE=$(echo "$LINE" | cut -d' ' -f 3)
 
@@ -86,7 +89,7 @@ macro_check_undef () {
     COUNT=$(( $COUNT + 1 ))
 }
 
-echo "Checking built-in macros for: ${PREFIX}gcc $CFLAGS"
+echo "Checking built-in macros for: $CC $CFLAGS"
 
 # All toolchains must define the following prebuilt macros.
 macro_check __ANDROID__ 1   "Android target system"

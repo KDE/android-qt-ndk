@@ -136,6 +136,9 @@ check-required-vars = $(foreach __varname,$1,\
   )\
 )
 
+# The list of default C++ extensions supported by GCC.
+default-c++-extensions := .cc .cp .cxx .cpp .CPP .c++ .C
+
 # -----------------------------------------------------------------------------
 # Function : host-path
 # Arguments: 1: file path
@@ -286,7 +289,7 @@ generate-dir = $(eval $(call ev-generate-dir,$1))
 define ev-generate-file-dir
 __ndk_file_dir := $(call parent-dir,$1)
 $$(call generate-dir,$$(__ndk_file_dir))
-$1: $$(__ndk_file_dir)
+$1:| $$(__ndk_file_dir)
 endef
 
 generate-file-dir = $(eval $(call ev-generate-file-dir,$1))
@@ -656,11 +659,12 @@ module-get-built = $(__ndk_modules.$1.BUILT_MODULE)
 #
 module-is-installable = $(call module-class-is-installable,$(call module-get-class,$1))
 
-# Returns $(true) if module $1 is prebuilt
-# A prebuilt module is one declared with BUILD_PREBUILT_SHARED_LIBRARY or
-# BUILD_PREBUILT_STATIC_LIBRARY
+# Returns $(true) if module $1 is a copyable prebuilt
+# A copyable prebuilt module is one that will be copied to $NDK_OUT/<abi>/
+# at build time. At the moment, this is only used for prebuilt shared
+# libraries, since it helps ndk-gdb.
 #
-module-is-prebuilt = $(call module-class-is-prebuilt,$(call module-get-class,$1))
+module-is-copyable = $(call module-class-is-copyable,$(call module-get-class,$1))
 
 # -----------------------------------------------------------------------------
 # Function : module-get-export
@@ -818,12 +822,12 @@ modules-get-all-installable = $(strip \
         $(if $(call module-is-installable,$(__alldep)),$(__alldep))\
     ))
 
-# Return the C++ extension of a given module
+# Return the C++ extension(s) of a given module
 # $1: module name
-module-get-cpp-extension = $(strip \
+module-get-c++-extensions = $(strip \
     $(if $(__ndk_modules.$1.CPP_EXTENSION),\
         $(__ndk_modules.$1.CPP_EXTENSION),\
-        .cpp\
+        $(default-c++-extensions)\
     ))
 
 # Return the list of C++ sources of a given module
@@ -831,7 +835,8 @@ module-get-cpp-extension = $(strip \
 module-get-c++-sources = \
     $(eval __files := $(__ndk_modules.$1.SRC_FILES:%.neon=%)) \
     $(eval __files := $(__files:%.arm=%)) \
-    $(filter %$(call module-get-cpp-extension,$1),$(__files))
+    $(eval __extensions := $(call module-get-c++-extensions,$1))\
+    $(filter $(foreach __extension,$(__extensions),%$(__extension)),$(__files))
 
 # Returns true if a module has C++ sources
 #
@@ -927,7 +932,9 @@ module-has-c++-features = $(strip \
 # $3: list of C++ runtime shared libraries (if any)
 #
 module-add-c++-deps = \
+    $(if $(call strip,$2),$(call ndk_log,Add dependency '$(call strip,$2)' to module '$1'))\
     $(eval __ndk_modules.$1.STATIC_LIBRARIES += $(2))\
+    $(if $(call strip,$3),$(call ndk_log,Add dependency '$(call strip,$3)' to module '$1'))\
     $(eval __ndk_modules.$1.SHARED_LIBRARIES += $(3))
 
 
@@ -1088,6 +1095,18 @@ handle-module-built = \
 # Usage    : $(call strip-lib-prefix,$(LOCAL_MODULE))
 # -----------------------------------------------------------------------------
 strip-lib-prefix = $(1:lib%=%)
+
+# -----------------------------------------------------------------------------
+# Compute the real path of a prebuilt file.
+#
+# Function : local-prebuilt-path
+# Arguments: 1: prebuilt path (as listed in $(LOCAL_SRC_FILES))
+# Returns  : full path. If $1 begins with a /, the path is considered
+#            absolute and returned as-is. Otherwise, $(LOCAL_PATH)/$1 is
+#            returned instead.
+# Usage    : $(call local-prebuilt-path,$(LOCAL_SRC_FILES))
+# -----------------------------------------------------------------------------
+local-prebuilt-path = $(if $(filter /%,$1),$1,$(LOCAL_PATH)/$1)
 
 # -----------------------------------------------------------------------------
 # This is used to strip any lib prefix from LOCAL_MODULE, then check that
@@ -1285,9 +1304,10 @@ $(foreach __src,$(LOCAL_SRC_FILES),$(info LOCAL_SRC_FILES_TEXT.$(__src) = $(LOCA
 NDK_APP_VARS_REQUIRED :=
 
 # the list of variables that *may* be defined in Application.mk files
-NDK_APP_VARS_OPTIONAL := APP_OPTIM APP_CPPFLAGS APP_CFLAGS APP_CXXFLAGS \
+NDK_APP_VARS_OPTIONAL := APP_OPTIM APP_CPPFLAGS APP_CFLAGS APP_CXXFLAGS APP_LDFLAGS \
                          APP_PLATFORM APP_BUILD_SCRIPT APP_ABI APP_MODULES \
-                         APP_PROJECT_PATH APP_STL APP_SHORT_COMMANDS
+                         APP_PROJECT_PATH APP_STL APP_SHORT_COMMANDS \
+                         APP_PIE
 
 # the list of all variables that may appear in an Application.mk file
 # or defined by the build scripts.
@@ -1370,7 +1390,7 @@ convert-deps = $1.org
 cmd-convert-deps = && $(NDK_DEPENDENCIES_CONVERTER) $1
 else
 convert-deps = $1
-cmd-convert-deps = 
+cmd-convert-deps =
 endif
 
 # This assumes that many variables have been pre-defined:
@@ -1685,9 +1705,6 @@ module-class-register-installable = \
     $(call module-class-register,$1,$2,$3) \
     $(eval NDK_MODULE_CLASS.$1.INSTALLABLE := $(true))
 
-module-class-set-prebuilt = \
-    $(eval NDK_MODULE_CLASS.$1.PREBUILT := $(true))
-
 # Returns $(true) if $1 is a valid/registered LOCAL_MODULE_CLASS value
 #
 module-class-check = $(call set_is_member,$(NDK_MODULE_CLASSES),$1)
@@ -1696,9 +1713,9 @@ module-class-check = $(call set_is_member,$(NDK_MODULE_CLASSES),$1)
 #
 module-class-is-installable = $(if $(NDK_MODULE_CLASS.$1.INSTALLABLE),$(true),$(false))
 
-# Returns $(true) if $1 corresponds to an installable module class
+# Returns $(true) if $1 corresponds to a copyable prebuilt module class
 #
-module-class-is-prebuilt = $(if $(NDK_MODULE_CLASS.$1.PREBUILT),$(true),$(false))
+module-class-is-copyable = $(if $(call seq,$1,PREBUILT_SHARED_LIBRARY),$(true),$(false))
 
 #
 # Register valid module classes
@@ -1722,12 +1739,10 @@ $(call module-class-register-installable,EXECUTABLE,,)
 # <foo> -> <foo>  (we assume it is already well-named)
 # it is installable
 $(call module-class-register-installable,PREBUILT_SHARED_LIBRARY,,)
-$(call module-class-set-prebuilt,PREBUILT_SHARED_LIBRARY)
 
 # prebuilt static library
 # <foo> -> <foo> (we assume it is already well-named)
 $(call module-class-register,PREBUILT_STATIC_LIBRARY,,)
-$(call module-class-set-prebuilt,PREBUILT_STATIC_LIBRARY)
 
 #
 # C++ STL support

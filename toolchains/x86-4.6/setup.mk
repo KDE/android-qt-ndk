@@ -28,24 +28,29 @@ TOOLCHAIN_PREFIX := $(TOOLCHAIN_PREBUILT_ROOT)/bin/i686-linux-android-
 
 TARGET_CFLAGS := \
     -ffunction-sections \
-    -funwind-tables
+    -funwind-tables \
+    -no-canonical-prefixes
 
 TARGET_C_INCLUDES := \
     $(SYSROOT)/usr/include
 
 # Add and LDFLAGS for the target here
-# TARGET_LDFLAGS :=
+TARGET_LDFLAGS := -no-canonical-prefixes
 
 TARGET_CFLAGS += -fstack-protector
 
-TARGET_x86_release_CFLAGS :=  -O2 \
-                              -fomit-frame-pointer \
-                              -fstrict-aliasing    \
-                              -funswitch-loops     \
-                              -finline-limit=300
+TARGET_x86_release_CFLAGS := -O2 \
+                             -g \
+                             -DNDEBUG \
+                             -fomit-frame-pointer \
+                             -fstrict-aliasing    \
+                             -funswitch-loops     \
+                             -finline-limit=300
 
 # When building for debug, compile everything as x86.
 TARGET_x86_debug_CFLAGS := $(TARGET_x86_release_CFLAGS) \
+                           -O0 \
+                           -UNDEBUG \
                            -fno-omit-frame-pointer \
                            -fno-strict-aliasing
 

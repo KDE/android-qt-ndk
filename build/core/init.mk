@@ -33,10 +33,22 @@
 .DELETE_ON_ERROR:
 
 
-# Define NDK_LOG in your environment to display log traces when
+# Define NDK_LOG=1 in your environment to display log traces when
 # using the build scripts. See also the definition of ndk_log below.
 #
 NDK_LOG := $(strip $(NDK_LOG))
+ifeq ($(NDK_LOG),true)
+    override NDK_LOG := 1
+endif
+
+# Define NDK_HOST_32BIT=1 in your environment to always use toolchain in 32-bit
+# even if 64-bit is present.  Note that toolchains in 64-bit still produce
+# 32-bit binaries for Android
+#
+NDK_HOST_32BIT := $(strip $(NDK_HOST_32BIT))
+ifeq ($(NDK_HOST_32BIT),true)
+    override NDK_HOST_32BIT := 1
+endif
 
 # Check that we have at least GNU Make 3.81
 # We do this by detecting whether 'lastword' is supported
@@ -45,7 +57,7 @@ MAKE_TEST := $(lastword a b c d e f)
 ifneq ($(MAKE_TEST),f)
     $(error Android NDK: GNU Make version $(MAKE_VERSION) is too low (should be >= 3.81))
 endif
-ifdef NDK_LOG
+ifeq ($(NDK_LOG),1)
     $(info Android NDK: GNU Make version $(MAKE_VERSION) detected)
 endif
 
@@ -84,14 +96,31 @@ endif
 
 # -----------------------------------------------------------------------------
 # Function : ndk_log
-# Arguments: 1: text to print when NDK_LOG is defined
+# Arguments: 1: text to print when NDK_LOG is defined to 1
 # Returns  : None
 # Usage    : $(call ndk_log,<some text>)
 # -----------------------------------------------------------------------------
-ifdef NDK_LOG
+ifeq ($(NDK_LOG),1)
 ndk_log = $(info $(__ndk_name): $1)
 else
 ndk_log :=
+endif
+
+# -----------------------------------------------------------------------------
+# Function : host-prebuilt-tag
+# Arguments: 1: parent path of "prebuilt"
+# Returns  : path $1/prebuilt/(HOST_TAG64) exists and NDK_HOST_32BIT isn't defined to 1,
+#            or $1/prebuilt/(HOST_TAG)
+# Usage    : $(call host-prebuilt-tag, <path>)
+# Rationale: This function is used to proble available 64-bit toolchain or
+#            return 32-bit one as default.  Note that HOST_TAG64==HOST_TAG for
+#            32-bit system (or 32-bit userland in 64-bit system)
+# -----------------------------------------------------------------------------
+ifeq ($(NDK_HOST_32BIT),1)
+host-prebuilt-tag = $1/prebuilt/$(HOST_TAG)
+else
+host-prebuilt-tag = \
+   $(if $(strip $(wildcard $1/prebuilt/$(HOST_TAG64))),$1/prebuilt/$(HOST_TAG64),$1/prebuilt/$(HOST_TAG))
 endif
 
 # ====================================================================
@@ -183,16 +212,23 @@ else
 endif
 
 HOST_ARCH := $(strip $(HOST_ARCH))
+HOST_ARCH64 :=
 ifndef HOST_ARCH
     ifeq ($(HOST_OS_BASE),windows)
         HOST_ARCH := $(PROCESSOR_ARCHITECTURE)
         ifeq ($(HOST_ARCH),AMD64)
             HOST_ARCH := x86
         endif
+        ifneq ("",$(shell echo "%ProgramW6432%"))
+            HOST_ARCH64 := x86_64
+        endif
     else # HOST_OS_BASE != windows
         UNAME := $(shell uname -m)
         ifneq (,$(findstring 86,$(UNAME)))
             HOST_ARCH := x86
+            ifneq (,$(shell file -L $(SHELL) | grep 'x86[_-]64'))
+                HOST_ARCH64 := x86_64
+            endif
         endif
         # We should probably should not care at all
         ifneq (,$(findstring Power,$(UNAME)))
@@ -208,7 +244,12 @@ else
     $(call ndk_log,Host CPU from environment: $(HOST_ARCH))
 endif
 
+ifeq (,$(HOST_ARCH64))
+    HOST_ARCH64 := $(HOST_ARCH)
+endif
+
 HOST_TAG := $(HOST_OS_BASE)-$(HOST_ARCH)
+HOST_TAG64 := $(HOST_OS_BASE)-$(HOST_ARCH64)
 
 # The directory separator used on this host
 HOST_DIRSEP := :
@@ -244,26 +285,38 @@ endif
 $(call ndk_log,HOST_TAG set to $(HOST_TAG))
 
 # Check for NDK-specific versions of our host tools
-HOST_PREBUILT := $(strip $(wildcard $(NDK_ROOT)/prebuilt/$(HOST_TAG)/bin))
+HOST_PREBUILT_ROOT := $(call host-prebuilt-tag, $(NDK_ROOT))
+HOST_PREBUILT := $(strip $(wildcard $(HOST_PREBUILT_ROOT)/bin))
+HOST_AWK := $(strip $(NDK_HOST_AWK))
+HOST_SED  := $(strip $(NDK_HOST_SED))
+HOST_MAKE := $(strip $(NDK_HOST_MAKE))
 ifdef HOST_PREBUILT
     $(call ndk_log,Host tools prebuilt directory: $(HOST_PREBUILT))
     # The windows prebuilt binaries are for ndk-build.cmd
     # On cygwin, we must use the Cygwin version of these tools instead.
     ifneq ($(HOST_OS),cygwin)
-        HOST_AWK := $(wildcard $(HOST_PREBUILT)/awk$(HOST_EXEEXT))
-        HOST_SED  := $(wildcard $(HOST_PREBUILT)/sed$(HOST_EXEEXT))
-        HOST_MAKE := $(wildcard $(HOST_PREBUILT)/make$(HOST_EXEEXT))
+        ifndef HOST_AWK
+            HOST_AWK := $(wildcard $(HOST_PREBUILT)/awk$(HOST_EXEEXT))
+        endif
+        ifndef HOST_SED
+            HOST_SED  := $(wildcard $(HOST_PREBUILT)/sed$(HOST_EXEEXT))
+        endif
+        ifndef HOST_MAKE
+            HOST_MAKE := $(wildcard $(HOST_PREBUILT)/make$(HOST_EXEEXT))
+        endif
     endif
 else
     $(call ndk_log,Host tools prebuilt directory not found, using system tools)
 endif
 
-HOST_ECHO := $(strip $(HOST_ECHO))
-ifndef HOST_ECHO
-    # Special case, on Cygwin, always use the host echo, not our prebuilt one
-    # which adds \r\n at the end of lines.
-    ifneq ($(HOST_OS),cygwin)
-        HOST_ECHO := $(strip $(wildcard $(NDK_ROOT)/prebuilt/$(HOST_TAG)/bin/echo$(HOST_EXEEXT)))
+HOST_ECHO := $(strip $(NDK_HOST_ECHO))
+ifdef HOST_PREBUILT
+    ifndef HOST_ECHO
+        # Special case, on Cygwin, always use the host echo, not our prebuilt one
+        # which adds \r\n at the end of lines.
+        ifneq ($(HOST_OS),cygwin)
+            HOST_ECHO := $(strip $(wildcard $(HOST_PREBUILT)/echo$(HOST_EXEEXT)))
+        endif
     endif
 endif
 ifndef HOST_ECHO
@@ -281,9 +334,11 @@ else
 endif
 $(call ndk_log,Host 'echo -n' tool: $(HOST_ECHO_N))
 
-HOST_CMP := $(strip $(HOST_CMP))
-ifndef HOST_CMP
-    HOST_CMP := $(strip $(wildcard $(NDK_ROOT)/prebuilt/$(HOST_TAG)/bin/cmp$(HOST_EXEEXT)))
+HOST_CMP := $(strip $(NDK_HOST_CMP))
+ifdef HOST_PREBUILT
+    ifndef HOST_CMP
+        HOST_CMP := $(strip $(wildcard $(HOST_PREBUILT)/cmp$(HOST_EXEEXT)))
+    endif
 endif
 ifndef HOST_CMP
     HOST_CMP := cmp
@@ -306,31 +361,29 @@ BUILD_AWK := $(NDK_ROOT)/build/awk
 AWK_TEST := $(shell $(HOST_AWK) -f $(BUILD_AWK)/check-awk.awk)
 $(call ndk_log,Host 'awk' test returned: $(AWK_TEST))
 ifneq ($(AWK_TEST),Pass)
-    $(call __ndk_info,Host 'awk' tool is outdated. Please define HOST_AWK to point to Gawk or Nawk !)
+    $(call __ndk_info,Host 'awk' tool is outdated. Please define NDK_HOST_AWK to point to Gawk or Nawk !)
     $(call __ndk_error,Aborting.)
 endif
 
 #
-# On Cygwin, define the 'cygwin-to-host-path' function here depending on the
+# On Cygwin/MSys, define the 'cygwin-to-host-path' function here depending on the
 # environment. The rules are the following:
 #
-# 1/ If "cygpath' is not in your path, do not use it at all. It looks like
-#    this allows to build with the NDK from MSys without problems.
+# 1/ If NDK_USE_CYGPATH=1 and cygpath does exist in your path, cygwin-to-host-path
+#    calls "cygpath -m" for each host path.  Since invoking 'cygpath -m' from GNU
+#    Make for each source file is _very_ slow, this is only a backup plan in
+#    case our automatic substitution function (described below) doesn't work.
 #
-# 2/ Since invoking 'cygpath -m' from GNU Make for each source file is
-#    _very_ slow, try to generate a Make function that performs the mapping
-#    from cygwin to host paths through simple substitutions.
-#
-# 3/ In case we fail horribly, allow the user to define NDK_USE_CYGPATH to '1'
-#    in order to use 'cygpath -m' nonetheless. This is only a backup plan in
-#    case our automatic substitution function doesn't work (only likely if you
-#    have a very weird cygwin setup).
-#
-# The function for 2/ is generated by an awk script. It's really a series
-# of nested patsubst calls, that look like:
+# 2/ Generate a Make function that performs the mapping from cygwin/msys to host
+#    paths through simple substitutions.  It's really a series of nested patsubst
+#    calls, that loo like:
 #
 #     cygwin-to-host-path = $(patsubst /cygdrive/c/%,c:/%,\
 #                             $(patsusbt /cygdrive/d/%,d:/%, \
+#                              $1)
+#    or in MSys:
+#     cygwin-to-host-path = $(patsubst /c/%,c:/%,\
+#                             $(patsusbt /d/%,d:/%, \
 #                              $1)
 #
 # except that the actual definition is built from the list of mounted
@@ -348,21 +401,22 @@ ifeq ($(HOST_OS),cygwin)
             $(call ndk_log, 'cygpath' found as: $(CYGPATH))
         endif
     endif
-    ifndef CYGPATH
-        cygwin-to-host-path = $1
-    else
-        ifeq ($(NDK_USE_CYGPATH),1)
-            $(call ndk_log, Forced usage of 'cygpath -m' through NDK_USE_CYGPATH=1)
-            cygwin-to-host-path = $(strip $(shell $(CYGPATH) -m $1))
-        else
-            # Call an awk script to generate a Makefile fragment used to define a function
-            WINDOWS_HOST_PATH_FRAGMENT := $(shell mount | $(HOST_AWK) -f $(BUILD_AWK)/gen-windows-host-path.awk)
-            ifeq ($(NDK_LOG),1)
-                $(info Using cygwin substitution rules:)
-                $(eval $(shell mount | $(HOST_AWK) -f $(BUILD_AWK)/gen-windows-host-path.awk -vVERBOSE=1))
-            endif
-            $(eval cygwin-to-host-path = $(WINDOWS_HOST_PATH_FRAGMENT))
+
+    ifeq ($(NDK_USE_CYGPATH),1)
+        ifndef CYGPATH
+            $(call __ndk_info,No cygpath)
+            $(call __ndk_error,Aborting)
         endif
+        $(call ndk_log, Forced usage of 'cygpath -m' through NDK_USE_CYGPATH=1)
+        cygwin-to-host-path = $(strip $(shell $(CYGPATH) -m $1))
+    else
+        # Call an awk script to generate a Makefile fragment used to define a function
+        WINDOWS_HOST_PATH_FRAGMENT := $(shell mount | tr '\\' '/' | $(HOST_AWK) -f $(BUILD_AWK)/gen-windows-host-path.awk)
+        ifeq ($(NDK_LOG),1)
+            $(info Using cygwin substitution rules:)
+            $(eval $(shell mount | tr '\\' '/' | $(HOST_AWK) -f $(BUILD_AWK)/gen-windows-host-path.awk -vVERBOSE=1))
+        endif
+        $(eval cygwin-to-host-path = $(WINDOWS_HOST_PATH_FRAGMENT))
     endif
 endif # HOST_OS == cygwin
 
@@ -443,7 +497,6 @@ endif
 # This is used in setup-toolchain.mk
 #
 NDK_TOOLCHAIN_VERSION := $(strip $(NDK_TOOLCHAIN_VERSION))
-
 
 $(call ndk_log, This NDK supports the following target architectures and ABIS:)
 $(foreach arch,$(NDK_ALL_ARCHS),\

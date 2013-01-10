@@ -23,10 +23,10 @@ GNUSTL_SUBDIR=sources/cxx-stl/gnu-libstdc++
 
 # The date to use when downloading toolchain sources from AOSP servers
 # Leave it empty for tip of tree.
-TOOLCHAIN_GIT_DATE=2012-08-31
+TOOLCHAIN_GIT_DATE=now
 
 # The space-separated list of all GCC versions we support in this NDK
-DEFAULT_GCC_VERSION_LIST="4.6 4.4.3"
+DEFAULT_GCC_VERSION_LIST="4.6 4.7 4.4.3"
 
 # The default GCC version for this NDK, i.e. the first item in
 # $DEFAULT_GCC_VERSION_LIST
@@ -35,9 +35,11 @@ DEFAULT_GCC_VERSION=$(echo "$DEFAULT_GCC_VERSION_LIST" | tr ' ' '\n' | head -n 1
 
 DEFAULT_BINUTILS_VERSION=2.22.52
 DEFAULT_GDB_VERSION=7.3.x
-DEFAULT_MPFR_VERSION=2.4.1
+DEFAULT_MPFR_VERSION=3.1.1
 DEFAULT_GMP_VERSION=5.0.5
-DEFAULT_MPC_VERSION=0.8.1
+DEFAULT_MPC_VERSION=1.0.1
+DEFAULT_CLOOG_VERSION=0.17.0
+DEFAULT_PPL_VERSION=1.0
 
 # Default platform to build target binaries against.
 DEFAULT_PLATFORM=android-9
@@ -61,11 +63,17 @@ DEFAULT_ARCH_TOOLCHAIN_PREFIX_mips=mipsel-linux-android
 # The space-separated list of all LLVM versions we support in NDK
 DEFAULT_LLVM_VERSION_LIST="3.1"
 
+# The default LLVM version (first item in the list)
+DEFAULT_LLVM_VERSION=$(echo "$DEFAULT_LLVM_VERSION_LIST" | tr ' ' '\n' | head -n 1)
+
 # The default URL to download the LLVM tar archive
 DEFAULT_LLVM_URL="http://llvm.org/releases"
 
 # The list of default host NDK systems we support
 DEFAULT_SYSTEMS="linux-x86 windows darwin-x86"
+
+# The default issue tracker URL
+DEFAULT_ISSUE_TRACKER_URL="http://source.android.com/source/report-bugs.html"
 
 # Return default NDK ABI for a given architecture name
 # $1: Architecture name
@@ -183,7 +191,7 @@ get_toolchain_name_list_for_arch ()
 get_default_binutils_version_for_gcc ()
 {
     case $1 in
-        arm-*-4.4.3|x86-4.4.3|x86-*-4.4.3) echo "2.22.52";;
+        arm-*-4.4.3|x86-4.4.3|x86-*-4.4.3) echo "2.23.1";;
         *) echo "$DEFAULT_BINUTILS_VERSION";;
     esac
 }
