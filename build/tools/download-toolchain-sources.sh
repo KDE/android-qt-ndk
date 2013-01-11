@@ -244,7 +244,7 @@ dump "Downloading http://www.python.org/ftp/python/${PYVERSION_FOLDER}/Python-${
 (mkdir -p $TMPDIR/python && cd $TMPDIR/python && run curl -S -O http://www.python.org/ftp/python/${PYVERSION_FOLDER}/Python-${PYVERSION}.tar.bz2 && tar -xjf Python-${PYVERSION}.tar.bz2)
 # We use (and patch) a very recent binutils snapshot.
 dump "Downloading ftp://sourceware.org/pub/binutils/snapshots/binutils-2.23.1.tar.bz2"
-(mkdir -p $TMPDIR/binutils && cd $TMPDIR/binutils && run curl -S -L -O ftp://sourceware.org/pub/binutils/snapshots/binutils-2.23.1.tar.bz2 && tar -xjf binutils-2.23.1.tar.bz2)
+(mkdir -p $TMPDIR/binutils && cd $TMPDIR/binutils && run curl -S -L -O ftp://sourceware.org/pub/binutils/releases/binutils-2.23.1.tar.bz2 && tar -xjf binutils-2.23.1.tar.bz2)
 
 # Patch the toolchain sources
 if [ "$OPTION_NO_PATCHES" != "yes" ]; then

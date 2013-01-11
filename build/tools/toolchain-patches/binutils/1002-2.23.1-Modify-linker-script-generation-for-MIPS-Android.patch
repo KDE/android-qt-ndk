@@ -1,6 +1,6 @@
-diff -urN a/binutils-2.22.52/ld/emulparams/elf32bmip.sh b/binutils-2.22.52/ld/emulparams/elf32bmip.sh
---- a/binutils-2.22.52/ld/emulparams/elf32bmip.sh	2012-07-13 12:50:16.317173807 +0100
-+++ b/binutils-2.22.52/ld/emulparams/elf32bmip.sh	2012-07-13 12:50:43.258366602 +0100
+diff -urN a/binutils-2.23.1/ld/emulparams/elf32bmip.sh b/binutils-2.23.1/ld/emulparams/elf32bmip.sh
+--- a/binutils-2.23.1/ld/emulparams/elf32bmip.sh	2012-07-13 12:50:16.317173807 +0100
++++ b/binutils-2.23.1/ld/emulparams/elf32bmip.sh	2012-07-13 12:50:43.258366602 +0100
 @@ -6,7 +6,7 @@
  OUTPUT_FORMAT="elf32-bigmips"
  BIG_OUTPUT_FORMAT="elf32-bigmips"
@@ -10,9 +10,9 @@ diff -urN a/binutils-2.22.52/ld/emulparams/elf32bmip.sh b/binutils-2.22.52/ld/em
  test -n "${EMBEDDED}" || DATA_ADDR=0x10000000
  MAXPAGESIZE="CONSTANT (MAXPAGESIZE)"
  COMMONPAGESIZE="CONSTANT (COMMONPAGESIZE)"
-diff -urN a/binutils-2.22.52/ld/emulparams/elf32bmip.sh.rej b/binutils-2.22.52/ld/emulparams/elf32bmip.sh.rej
---- a/binutils-2.22.52/ld/emulparams/elf32bmip.sh.rej	1970-01-01 01:00:00.000000000 +0100
-+++ b/binutils-2.22.52/ld/emulparams/elf32bmip.sh.rej	2012-07-13 12:50:43.259366636 +0100
+diff -urN a/binutils-2.23.1/ld/emulparams/elf32bmip.sh.rej b/binutils-2.23.1/ld/emulparams/elf32bmip.sh.rej
+--- a/binutils-2.23.1/ld/emulparams/elf32bmip.sh.rej	1970-01-01 01:00:00.000000000 +0100
++++ b/binutils-2.23.1/ld/emulparams/elf32bmip.sh.rej	2012-07-13 12:50:43.259366636 +0100
 @@ -0,0 +1,15 @@
 +--- ld/emulparams/elf32bmip.sh
 ++++ ld/emulparams/elf32bmip.sh
@@ -29,16 +29,16 @@ diff -urN a/binutils-2.22.52/ld/emulparams/elf32bmip.sh.rej b/binutils-2.22.52/l
 +   .gcc_compiled_long32 : { KEEP(*(.gcc_compiled_long32)) }
 +   .gcc_compiled_long64 : { KEEP(*(.gcc_compiled_long64)) }
 + '
-diff -urN a/binutils-2.22.52/ld/emulparams/elf32ltsmip.sh b/binutils-2.22.52/ld/emulparams/elf32ltsmip.sh
---- a/binutils-2.22.52/ld/emulparams/elf32ltsmip.sh	2012-07-13 12:50:16.317173807 +0100
-+++ b/binutils-2.22.52/ld/emulparams/elf32ltsmip.sh	2012-07-13 12:50:43.260366667 +0100
+diff -urN a/binutils-2.23.1/ld/emulparams/elf32ltsmip.sh b/binutils-2.23.1/ld/emulparams/elf32ltsmip.sh
+--- a/binutils-2.23.1/ld/emulparams/elf32ltsmip.sh	2012-07-13 12:50:16.317173807 +0100
++++ b/binutils-2.23.1/ld/emulparams/elf32ltsmip.sh	2012-07-13 12:50:43.260366667 +0100
 @@ -1,2 +1,3 @@
  . ${srcdir}/emulparams/elf32btsmip.sh
  OUTPUT_FORMAT="elf32-tradlittlemips"
 +unset TEXT_DYNAMIC
-diff -urN a/binutils-2.22.52/ld/genscripts.sh b/binutils-2.22.52/ld/genscripts.sh
---- a/binutils-2.22.52/ld/genscripts.sh	2012-07-13 12:50:16.325173865 +0100
-+++ b/binutils-2.22.52/ld/genscripts.sh	2012-07-13 12:50:43.261366697 +0100
+diff -urN a/binutils-2.23.1/ld/genscripts.sh b/binutils-2.23.1/ld/genscripts.sh
+--- a/binutils-2.23.1/ld/genscripts.sh	2012-07-13 12:50:16.325173865 +0100
++++ b/binutils-2.23.1/ld/genscripts.sh	2012-07-13 12:50:43.261366697 +0100
 @@ -241,7 +241,8 @@
    fi
  fi
@@ -65,9 +65,9 @@ diff -urN a/binutils-2.22.52/ld/genscripts.sh b/binutils-2.22.52/ld/genscripts.s
        . ${CUSTOMIZER_SCRIPT}
        . ${srcdir}/scripttempl/${SCRIPT_NAME}.sc
      ) | sed -e '/^ *$/d;s/[ 	]*$//' > ldscripts/${EMULATION_NAME}.xsc
-diff -urN a/binutils-2.22.52/ld/scripttempl/elf.sc b/binutils-2.22.52/ld/scripttempl/elf.sc
---- a/binutils-2.22.52/ld/scripttempl/elf.sc	2012-07-13 12:50:16.325173865 +0100
-+++ b/binutils-2.22.52/ld/scripttempl/elf.sc	2012-07-13 12:53:45.288612412 +0100
+diff -urN a/binutils-2.23.1/ld/scripttempl/elf.sc b/binutils-2.23.1/ld/scripttempl/elf.sc
+--- a/binutils-2.23.1/ld/scripttempl/elf.sc	2012-07-13 12:50:16.325173865 +0100
++++ b/binutils-2.23.1/ld/scripttempl/elf.sc	2012-07-13 12:53:45.288612412 +0100
 @@ -120,7 +120,9 @@
  DATA_SEGMENT_RELRO_END=""
  DATA_SEGMENT_END=""
