@@ -35,10 +35,13 @@ toolchains among the following names:
 
   arm-linux-androideabi-4.4.3
   arm-linux-androideabi-4.6
+  arm-linux-androideabi-4.7
   x64-4.4.3
   x86-4.6
+  x86-4.7
   mipsel-linux-android-4.4.3
   mipsel-linux-android-4.6
+  mipsel-linux-android-4.7
 
 By default, the script rebuilds the toolchain(s) for you host system [$HOST_TAG],
 but you can use --systems=<tag1>,<tag2>,.. to ask binaries that can run on
@@ -59,7 +62,8 @@ for four different systems:
   $PROGNAME --toolchain-src-dir=/path/to/toolchain/src \
     --systems=linux-x86,linux-x86_64,windows,windows-x86_64 \
     arm-linux-androideabi-4.4.3 \
-    arm-linux-androideabi-4.6
+    arm-linux-androideabi-4.6 \
+    arm-linux-androideabi-4.7
 
 You can build Windows binaries on Linux if you have a Windows-targetting
 cross-toolchain installed and in your path. Note that the script named
@@ -169,7 +173,7 @@ extract_parameters "$@"
 
 TOOLCHAINS=$PARAMETERS
 if [ -z "$TOOLCHAINS" ]; then
-    TOOLCHAINS="arm-linux-androideabi-4.4.3,arm-linux-androideabi-4.6,x86-4.4.3,x86-4.6,mipsel-linux-android-4.4.3,mipsel-linux-android-4.6"
+    TOOLCHAINS="arm-linux-androideabi-4.4.3,arm-linux-androideabi-4.6,arm-linux-androideabi-4.7,x86-4.4.3,x86-4.6,x86-4.7,mipsel-linux-android-4.4.3,mipsel-linux-android-4.6,mipsel-linux-android-4.7"
     dump "Auto-config: $TOOLCHAINS"
 fi
 
@@ -1273,8 +1277,8 @@ build_host_binutils ()
     # Enable Gold globally.
     BUILD_GOLD=true
 
-    # Special case, gold in binutil-2.21 doesn't build when targetting mips
-    if [ "$BINUTILS_VERSION" = "2.21" -a "$TARGET" = "mipsel-linux-android" ]; then
+    # Special case, gold doesn't build when targetting mips
+    if [ "$TARGET" = "mipsel-linux-android" ]; then
         BUILD_GOLD=
     fi
 
@@ -1283,6 +1287,7 @@ build_host_binutils ()
     #
     if [ "$BINUTILS_VERSION" = "2.21" -a "$TARGET" = "i686-linux-android" ]; then
         USE_LD_DEFAULT=true
+	BUILD_GOLD=
     fi
 
     if [ "$DEFAULT_LD" = "gold" -a -z "$BUILD_GOLD" ]; then
@@ -1404,7 +1409,7 @@ build_host_gcc_core ()
     ARGS=$HOST_PREREQS_ARGS
 
     case "$GCC_VERSION" in
-      4.4.3|4.6)
+      4.4.3|4.6|4.7)
         ARGS=$ARGS" --disable-plugin"
         ;;
     esac

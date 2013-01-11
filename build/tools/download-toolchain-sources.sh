@@ -243,8 +243,8 @@ PYVERSION_FOLDER=$(echo ${PYVERSION} | sed 's/\([0-9\.]*\).*/\1/')
 dump "Downloading http://www.python.org/ftp/python/${PYVERSION_FOLDER}/Python-${PYVERSION}.tar.bz2"
 (mkdir -p $TMPDIR/python && cd $TMPDIR/python && run curl -S -O http://www.python.org/ftp/python/${PYVERSION_FOLDER}/Python-${PYVERSION}.tar.bz2 && tar -xjf Python-${PYVERSION}.tar.bz2)
 # We use (and patch) a very recent binutils snapshot.
-dump "Downloading ftp://sourceware.org/pub/binutils/snapshots/binutils-2.22.52.tar.bz2"
-(mkdir -p $TMPDIR/binutils && cd $TMPDIR/binutils && run curl -S -L -O ftp://sourceware.org/pub/binutils/snapshots/binutils-2.22.52.tar.bz2 && tar -xjf binutils-2.22.52.tar.bz2)
+dump "Downloading ftp://sourceware.org/pub/binutils/snapshots/binutils-2.23.1.tar.bz2"
+(mkdir -p $TMPDIR/binutils && cd $TMPDIR/binutils && run curl -S -L -O ftp://sourceware.org/pub/binutils/snapshots/binutils-2.23.1.tar.bz2 && tar -xjf binutils-2.23.1.tar.bz2)
 
 # Patch the toolchain sources
 if [ "$OPTION_NO_PATCHES" != "yes" ]; then
